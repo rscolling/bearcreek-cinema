@@ -26,7 +26,7 @@ history is ingested into state DB; Ollama round-trip works.
 - [x] `phase2-01-archive-discovery.md` — Archive.org search for both
   collections
 - [x] `phase2-02-tmdb-enrichment.md` — TMDb lookups with caching
-- [ ] `phase2-03-tv-grouping.md` — episode→show association heuristics
+- [x] `phase2-03-tv-grouping.md` — episode→show association heuristics
 - [x] `phase2-04-ia-get-downloader.md` — subprocess wrapper around ia-get
   with fallback to `internetarchive`
 - [x] `phase2-05-librarian-core.md` — zone management, budget tracking

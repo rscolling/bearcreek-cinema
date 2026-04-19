@@ -514,6 +514,77 @@ def llm_calls_stats(
         )
 
 
+# --- tv-grouping ---
+tv_grouping_app = typer.Typer(
+    no_args_is_help=True,
+    help="Classify TV episode candidates into shows (phase2-03).",
+)
+app.add_typer(tv_grouping_app, name="tv-grouping")
+
+
+@tv_grouping_app.command("run")
+def tv_grouping_run(
+    limit: int = typer.Option(50, "--limit", "-l", help="Max episodes to classify"),
+) -> None:
+    """Classify ungrouped EPISODE candidates and persist matches."""
+    import asyncio
+
+    from archive_agent.archive.tv_grouping import group_unassigned_episodes
+    from archive_agent.config import ConfigError, load_config
+    from archive_agent.metadata import TmdbClient
+    from archive_agent.state.db import get_db, init_db
+
+    try:
+        cfg = load_config()
+    except ConfigError as exc:
+        typer.echo(f"ERROR: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+
+    init_db(cfg.paths.state_db)
+    conn = get_db()
+
+    async def _run() -> object:
+        async with TmdbClient(cfg.tmdb.api_key, conn) as tmdb:
+            return await group_unassigned_episodes(conn, tmdb, limit=limit)
+
+    import json as _json
+
+    result = asyncio.run(_run())
+    typer.echo(_json.dumps(result.model_dump_for_cli(), indent=2))  # type: ignore[attr-defined]
+
+
+@tv_grouping_app.command("review")
+def tv_grouping_review(
+    limit: int = typer.Option(20, "--limit", "-l", help="Max review rows to print"),
+) -> None:
+    """List unresolved entries in the TV grouping review queue."""
+    from archive_agent.config import ConfigError, load_config
+    from archive_agent.state.db import get_db, init_db
+
+    try:
+        cfg = load_config()
+    except ConfigError as exc:
+        typer.echo(f"ERROR: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+
+    init_db(cfg.paths.state_db)
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT archive_id, confidence, suggested_show_id, reason, created_at "
+        "FROM tv_grouping_review WHERE reviewed_at IS NULL "
+        "ORDER BY created_at DESC LIMIT ?",
+        (limit,),
+    ).fetchall()
+    if not rows:
+        typer.echo("No unresolved TV grouping reviews.")
+        return
+    for row in rows:
+        typer.echo(
+            f"  {row['archive_id']:<40}  {row['confidence']:<6}  "
+            f"suggest={row['suggested_show_id'] or '-':<8}  {row['reason']}"
+        )
+
+
 # --- metadata ---
 metadata_app = typer.Typer(no_args_is_help=True, help="TMDb metadata enrichment.")
 app.add_typer(metadata_app, name="metadata")

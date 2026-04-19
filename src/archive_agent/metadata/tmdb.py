@@ -156,6 +156,14 @@ class TmdbClient:
         return TmdbMovie.model_validate(results[0])
 
     async def search_show(self, title: str, year: int | None) -> TmdbShow | None:
+        """Return only the top result. Use ``search_shows`` when you
+        need to count results (e.g., TV grouping confidence scoring)."""
+        results = await self.search_shows(title, year)
+        return results[0] if results else None
+
+    async def search_shows(self, title: str, year: int | None, *, limit: int = 5) -> list[TmdbShow]:
+        """Return up to ``limit`` top TMDb TV matches (same cache as
+        ``search_show``)."""
         key = f"search:tv:{title.strip().lower()}:{year or ''}"
         cached = metadata_cache.get(self._conn, key)
         if cached is None:
@@ -165,9 +173,7 @@ class TmdbClient:
             cached = await self._get("/search/tv", params=params)
             metadata_cache.put(self._conn, key, cached, _TTL_SEARCH)
         results = cached.get("results") or []
-        if not results:
-            return None
-        return TmdbShow.model_validate(results[0])
+        return [TmdbShow.model_validate(r) for r in results[:limit]]
 
     async def get_movie(self, tmdb_id: int) -> TmdbMovie:
         key = f"id:movie:{tmdb_id}"
