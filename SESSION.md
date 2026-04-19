@@ -1,6 +1,6 @@
 # SESSION
 
-**Last updated:** 2026-04-19 by phase1-02 config session (typed TOML loader + ${VAR:-fallback} env interpolation + validator; 12 new tests pass)
+**Last updated:** 2026-04-19 by phase1-03 state-schema session (SQLite schema + migrations + queries + 9 tables + 24 new tests)
 
 Cross-session continuity for Claude Code working on Bear Creek Cinema.
 Read at the start of every session. Updated at the end of every session.
@@ -17,10 +17,10 @@ progress goes to the checklist in `claude-code-pack/TASKS/README.md`.
 
 **Phase:** Phase 1 in progress. Scaffold + Ollama stack landed.
 
-**Active task:** None. Next card: `phase1-03-state-schema` (SQLite
-schema + migrations) or `phase1-04-jellyfin-client` (REST client +
-history ingestion — needs phase1-03 for persistence). `phase1-06`
-(logging/observability) can run any time.
+**Active task:** None. Next card: `phase1-04-jellyfin-client` (REST
+client + history ingestion — depends on phase1-02 config and
+phase1-03 state, both now done). `phase1-05-ollama-smoke` and
+`phase1-06-logging-observability` can run any time.
 
 **Codebase state:** Python package live at `src/archive_agent/` with
 stub CLI (10 command groups, all exit 1), `tests/` scaffold with two
@@ -70,6 +70,37 @@ package installed editable with dev extras.
 ## Recent sessions
 
 *Most recent first. Prune entries older than the last 5 retained.*
+
+### 2026-04-19 — phase1-03: state DB schema + migrations + queries
+
+- `state/models.py` — 11 Pydantic models mirroring CONTRACTS.md §1
+  (ContentType/CandidateStatus/TasteEventKind as StrEnum; Candidate,
+  TasteEvent, EpisodeWatch, ShowState, EraPreference, TasteProfile,
+  RankedCandidate, SearchFilter). TasteEvent validators reject
+  content_type=EPISODE and require one of archive_id/show_id
+- `state/schema.sql` — DDL for 9 tables with CHECK constraints
+  matching the Pydantic invariants (content_type enums, valid zones,
+  positive strength/completion, archive_id XOR show_id on taste_events)
+- `state/migrations/` — filename-ordered `NNN_*.py` migrations loaded
+  via `importlib.util.spec_from_file_location` (filenames start with
+  a digit — not valid module names). `apply_pending`, `current_version`,
+  `revert_version`, `pending_versions` all public
+- `state/db.py` — connection factory (`connect`), singleton
+  (`get_db`), `init_db(path, dry_run=)`, `close_db`, `reset_cached_db`.
+  Enables WAL mode + foreign_keys on on-disk DBs; :memory: stays
+  default for speed
+- `state/queries/` — per-entity modules (candidates, taste_events,
+  episode_watches, show_state, downloads, llm_calls) with JSON
+  round-trip for list columns and ISO-8601 datetimes
+- CLI: `archive-agent state init [--dry-run]`, `state info`,
+  `state backup <path>`; `state` is the 11th top-level group
+- Tests: 24 new (7 candidates, 6 migrations, 7 models, 4 taste_events)
+  using an in-memory DB fixture with full migrations applied. Total
+  suite: 38 pass
+- Verified live on blueridge via an isolated scratch config: `state
+  init --dry-run` reports `[1]`, `state init` applies, `state info`
+  lists all 9 tables, second `state init` is a no-op, `state backup`
+  copies the 100 KB DB file
 
 ### 2026-04-19 — phase1-02: typed TOML config + env interpolation
 
@@ -183,22 +214,6 @@ package installed editable with dev extras.
 - Outcome: the Docker deployment shape is now concrete enough that
   `phase1-07` followed by `phase1-01` is a clean forward path. Hardware
   blocker closed. Open: API keys, sibling repo name, `.gitattributes`
-
-### 2026-04-18 — Repo bootstrap: git init + drift reconciliation
-
-- Added root `CLAUDE.md` as a concise entrypoint into
-  `claude-code-pack/` (pointers, current state, commands, module
-  boundaries)
-- `git init -b main`; baseline commit `5be4e03` captures the
-  design-complete, pre-code snapshot (43 files)
-- Reconciled drift: `TASKS/README.md` had `phase1-01`–`05` ticked as
-  done, but no `src/`, `tests/`, or `pyproject.toml` exist on disk.
-  Un-ticked those five boxes to match reality; SESSION.md was right,
-  the checklist was aspirational
-- Outcome: repo is now a real git repo with accurate task-status;
-  `phase1-01-scaffold` is unambiguously the next work to pick up.
-  Open blockers unchanged (API keys, hardware check, sibling repo
-  name, CRLF policy / `.gitattributes` before code lands)
 
 ---
 

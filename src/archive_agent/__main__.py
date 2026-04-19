@@ -8,6 +8,7 @@ land in later phase1/2/3 cards, one command group at a time.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import NoReturn
 
 import typer
@@ -164,6 +165,75 @@ def librarian_evict(
 ) -> None:
     """Apply eviction policies to bring usage under budget."""
     _not_implemented("librarian evict")
+
+
+# --- state ---
+state_app = typer.Typer(no_args_is_help=True, help="State DB management.")
+app.add_typer(state_app, name="state")
+
+
+@state_app.command("init")
+def state_init(
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="Report pending migrations without writing"
+    ),
+) -> None:
+    """Create the state DB and apply any pending migrations."""
+    from archive_agent.config import ConfigError, load_config
+    from archive_agent.state.db import init_db
+
+    try:
+        cfg = load_config()
+    except ConfigError as exc:
+        typer.echo(f"ERROR: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    applied = init_db(cfg.paths.state_db, dry_run=dry_run)
+    verb = "Would apply" if dry_run else "Applied"
+    if applied:
+        typer.echo(f"{verb} migrations: {applied} at {cfg.paths.state_db}")
+    else:
+        typer.echo(f"No pending migrations at {cfg.paths.state_db}")
+
+
+@state_app.command("info")
+def state_info() -> None:
+    """Print schema version and per-table row counts."""
+    from archive_agent.state.db import get_db
+    from archive_agent.state.migrations import current_version
+
+    conn = get_db()
+    typer.echo(f"Schema version: {current_version(conn)}")
+    rows = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
+    ).fetchall()
+    typer.echo("Table row counts:")
+    for row in rows:
+        table = row["name"]
+        count = conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+        typer.echo(f"  {table:<28} {count}")
+
+
+@state_app.command("backup")
+def state_backup(
+    dest: Path = typer.Argument(..., help="Destination file path"),  # noqa: B008
+) -> None:
+    """Copy the state DB to ``dest`` (parent dirs auto-created)."""
+    import shutil
+
+    from archive_agent.config import ConfigError, load_config
+
+    try:
+        cfg = load_config()
+    except ConfigError as exc:
+        typer.echo(f"ERROR: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    src = cfg.paths.state_db
+    if not src.exists():
+        typer.echo(f"no DB to back up at {src}", err=True)
+        raise typer.Exit(code=2)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(src, dest)
+    typer.echo(f"Backed up {src} -> {dest}")
 
 
 # --- serve / daemon ---
