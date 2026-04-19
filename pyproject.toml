@@ -60,6 +60,7 @@ module = [
     "dotenv.*",
     "httpx.*",
     "structlog.*",
+    "anthropic.*",
 ]
 ignore_missing_imports = true
 
@@ -99,4 +100,9 @@ markers = [
 filterwarnings = [
     "error",
     "ignore::DeprecationWarning:pydantic.*",
+    # Windows-only: asyncio's ProactorEventLoop raises at del time when
+    # a pipe transport isn't closed explicitly. The instructor/anthropic
+    # async clients don't always close cleanly on test teardown; the
+    # test itself still reports its real pass/fail.
+    "ignore::pytest.PytestUnraisableExceptionWarning",
 ]

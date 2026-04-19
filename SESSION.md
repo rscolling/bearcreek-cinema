@@ -1,6 +1,6 @@
 # SESSION
 
-**Last updated:** 2026-04-19 by phase1-04 jellyfin-client session (async client, watch-history classifier + idempotent ingestion, 14 new tests, 148 real movies ingested)
+**Last updated:** 2026-04-19 by phase1-05 ollama-smoke session (LLMProvider protocol + 3 providers + factory + health all JSON report; live qwen2.5:7b round-trip works)
 
 Cross-session continuity for Claude Code working on Bear Creek Cinema.
 Read at the start of every session. Updated at the end of every session.
@@ -17,9 +17,10 @@ progress goes to the checklist in `claude-code-pack/TASKS/README.md`.
 
 **Phase:** Phase 1 in progress. Scaffold + Ollama stack landed.
 
-**Active task:** None. Next card: `phase1-05-ollama-smoke` (LLMProvider
-skeleton + real Ollama round-trip + llm_calls audit wiring). `phase1-06`
-(logging/observability) can run any time and is a good pair with 05.
+**Active task:** None. Last phase 1 card: `phase1-06-logging-observability`
+(structlog config + secret redaction + llm_calls audit context manager).
+After that, Phase 1 is complete and phase 2 (Archive.org discovery +
+librarian) opens up.
 
 **Codebase state:** Python package live at `src/archive_agent/` with
 stub CLI (10 command groups, all exit 1), `tests/` scaffold with two
@@ -69,6 +70,43 @@ package installed editable with dev extras.
 ## Recent sessions
 
 *Most recent first. Prune entries older than the last 5 retained.*
+
+### 2026-04-19 — phase1-05: LLMProvider skeleton + live Ollama round-trip
+
+- `ranking/provider.py` — `LLMProvider` runtime-checkable Protocol +
+  `HealthStatus` BaseModel. Contract: never-raise for bad model output
+  (fall back instead), every call logs to `llm_calls`
+- `ranking/ollama_provider.py` — uses `ollama.AsyncClient` for model
+  listing and `instructor.AsyncInstructor` over the OpenAI-compatible
+  `/v1/...` endpoint for structured JSON. `health_check` verifies the
+  model is pulled, round-trips a 2-field `_SmokeResponse`, logs outcome
+  to `llm_calls` regardless of pass/fail. `rank`/`update_profile`/
+  `parse_search` raise `NotImplementedError` until phase3
+- `ranking/claude_provider.py` — Anthropic client; returns
+  status=down cleanly when `ANTHROPIC_API_KEY` is unset (no HTTP call,
+  no log row — "never silently fall through to Claude")
+- `ranking/tfidf_provider.py` — no external dep; `health_check` always
+  ok; other methods `NotImplementedError` until phase3-06
+- `ranking/factory.py` — `make_provider(name, cfg)` and
+  `make_provider_for_workflow("nightly_ranking", cfg)`. Both take an
+  optional `conn` that the providers use for `llm_calls` audit
+- CLI: `health ollama` / `health claude` / `health all`. The
+  consolidated `health all` gathers Ollama + Jellyfin + Claude (if
+  configured) + state DB + disk usage and exits 2 if any component is
+  down
+- Instructor pitfall documented: `from_provider("ollama/<model>")`
+  needs `base_url=http://host:11434/v1` (OpenAI-compat path), not the
+  native `/api/*` path. The native `ollama.AsyncClient` uses the base
+  URL without `/v1`
+- Tests: 10 new (5 factory, 4 llm_calls logging, 1 Ollama live smoke).
+  Integration suite is now 4 tests (3 Jellyfin + 1 Ollama smoke),
+  all pass under `RUN_INTEGRATION_TESTS=1`. Unit suite: 62 pass
+- Added `anthropic.*` to mypy overrides so the pre-commit sandbox
+  mypy passes; relaxed Windows-specific
+  `PytestUnraisableExceptionWarning` (ProactorEventLoop cleanup
+  noise that doesn't affect real test outcome)
+- Live `health all` returns clean JSON: ollama ok (5.6 s first-call
+  latency incl. cold load), jellyfin 10.11.8, state_db v2, disk 0/500 GB
 
 ### 2026-04-19 — phase1-04: async Jellyfin client + history ingestion
 
@@ -192,35 +230,6 @@ package installed editable with dev extras.
   blockers for phase3-04 profile bootstrap
 - Ticked `phase1-07` in `TASKS/README.md`; `phase1-02-config` is
   next in line
-
-### 2026-04-18 — phase1-01: scaffold landed
-
-- Wrote `pyproject.toml` (deps + mypy-strict + ruff + pytest config +
-  `archive-agent` console script)
-- Built the `src/archive_agent/` package tree with Typer CLI stubs for
-  all 10 command groups (config, history, discover, download,
-  recommend, profile, librarian, serve, daemon, health). Every stub
-  prints `not yet implemented` and exits 1
-- Added `tests/` with `conftest.py` and two scaffold tests
-  (package version, app importable)
-- Added `docker/Dockerfile` (python:3.12-slim, non-root UID 1000
-  matching `blueridge`), `docker-compose.yml` (joins external
-  `jellyfin_default` + `ollama_default`; named volume for state),
-  `.dockerignore`
-- Added `config.example.toml` per CONTRACTS.md §5
-- Added `.pre-commit-config.yaml` with ruff/ruff-format/mypy/pytest-unit
-- Validations all green on blueridge: `pytest tests/` (2 pass),
-  `mypy --strict src/archive_agent` (clean on 12 files),
-  `ruff check` + `ruff format --check` (clean),
-  `archive-agent --help` (exit 0), stub subcommand (exit 1),
-  `pre-commit run --all-files` (all four hooks pass with venv on PATH)
-- On don-quixote: tarball'd source, `docker build` succeeded, `docker
-  compose config` validated, container ran `archive-agent --help`
-  cleanly; cleaned up scratch image
-- Pre-existing drift fixed mid-task: stripped a non-ASCII em-dash and
-  arrow from the Typer root help string (Windows cp1252 console
-  couldn't encode them)
-- Ticked `phase1-01-scaffold.md` in `TASKS/README.md`
 
 ---
 

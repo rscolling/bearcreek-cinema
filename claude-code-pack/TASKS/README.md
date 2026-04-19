@@ -12,7 +12,7 @@ parallelizable (noted in the card).
 - [x] `phase1-02-config.md` — typed TOML config + env interpolation
 - [x] `phase1-03-state-schema.md` — SQLite schema + migrations
 - [x] `phase1-04-jellyfin-client.md` — REST client + history ingestion
-- [ ] `phase1-05-ollama-smoke.md` — Ollama + LLMProvider skeleton
+- [x] `phase1-05-ollama-smoke.md` — Ollama + LLMProvider skeleton
 - [ ] `phase1-06-logging-observability.md` — structlog config, redaction,
   llm_calls persistence wiring
 - [x] `phase1-07-ollama-stack.md` — Ollama Docker stack on don-quixote
