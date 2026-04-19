@@ -166,6 +166,31 @@ switch to `local` driver with rotation in the compose file.
 
 ---
 
+## Jellyfin library setup (one-time, per Jellyfin install)
+
+The agent reads from Jellyfin but **never creates or modifies
+libraries** (scope-limited by GUARDRAILS.md). Before the first
+`archive-agent jellyfin scan` or `scan_and_resolve` call, the user
+has to create two custom libraries alongside the existing Movies /
+Shows ones, so the agent has somewhere for candidates to land.
+
+In the Jellyfin Dashboard → **Libraries** → **Add Media Library**:
+
+| Library | Content type | Folder path | Notes |
+| --- | --- | --- | --- |
+| Movies | Movies | `/media/movies` | usually already exists |
+| Shows | TV Shows | `/media/tv` | usually already exists |
+| **Recommendations** | Movies | `/media/recommendations` | **create** — custom agent zone |
+| **TV Sampler** | TV Shows | `/media/tv-sampler` | **create** — custom agent zone |
+
+Names are free-form but must have exactly the folder paths above —
+`resolve_libraries` matches libraries back to zones by path, not by
+name. If any of the four are missing, `archive-agent jellyfin scan`
+and friends raise `MissingLibraryError` with a link back to this
+section.
+
+---
+
 ## Environment variables
 
 `.env.example`:

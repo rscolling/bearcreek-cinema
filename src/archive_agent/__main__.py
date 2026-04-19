@@ -538,6 +538,104 @@ def jellyfin_libraries() -> None:
     asyncio.run(_run())
 
 
+@jellyfin_app.command("scan")
+def jellyfin_scan(
+    zone: str = typer.Option(
+        "all",
+        "--zone",
+        help="Zone to scan (movies/tv/recommendations/tv-sampler/all)",
+    ),
+) -> None:
+    """Trigger a Jellyfin library scan on one or all zones."""
+    import asyncio
+
+    from archive_agent.jellyfin import MissingLibraryError, scan_zones
+    from archive_agent.librarian.zones import Zone
+
+    zones: list[Zone]
+    if zone == "all":
+        zones = list(Zone)
+    else:
+        try:
+            zones = [Zone(zone)]
+        except ValueError as exc:
+            typer.echo(f"invalid --zone={zone!r}", err=True)
+            raise typer.Exit(code=1) from exc
+
+    async def _run() -> None:
+        async with _open_jellyfin_client() as client:
+            try:
+                await scan_zones(client, zones)
+            except MissingLibraryError as exc:
+                typer.echo(f"ERROR: {exc}", err=True)
+                raise typer.Exit(code=2) from exc
+
+    asyncio.run(_run())
+    typer.echo(f"Triggered scan on {len(zones)} zone(s): {[z.value for z in zones]}")
+
+
+@jellyfin_app.command("resolve")
+def jellyfin_resolve(
+    archive_id: str = typer.Argument(..., help="Archive.org item identifier"),
+    zone: str = typer.Option(
+        "recommendations",
+        "--zone",
+        help="Zone the file was placed in (defaults to recommendations)",
+    ),
+    timeout: int = typer.Option(90, "--timeout", help="Seconds to wait for scan"),
+) -> None:
+    """Look up a placed candidate's Jellyfin ItemId and persist it."""
+    import asyncio
+
+    from archive_agent.config import ConfigError, load_config
+    from archive_agent.jellyfin import MissingLibraryError, scan_and_resolve
+    from archive_agent.librarian.zones import Zone
+    from archive_agent.state.db import get_db, init_db
+
+    try:
+        cfg = load_config()
+    except ConfigError as exc:
+        typer.echo(f"ERROR: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+
+    try:
+        zone_enum = Zone(zone)
+    except ValueError as exc:
+        typer.echo(f"invalid --zone={zone!r}", err=True)
+        raise typer.Exit(code=1) from exc
+
+    init_db(cfg.paths.state_db)
+    conn = get_db()
+
+    async def _run() -> str | None:
+        async with _open_jellyfin_client() as client:
+            return await scan_and_resolve(
+                client,
+                conn,
+                archive_id=archive_id,
+                zone=zone_enum,
+                timeout_s=timeout,
+            )
+
+    try:
+        item_id = asyncio.run(_run())
+    except MissingLibraryError as exc:
+        typer.echo(f"ERROR: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    except ValueError as exc:
+        typer.echo(f"ERROR: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+
+    if item_id is None:
+        typer.echo(
+            f"TIMEOUT: Jellyfin didn't index {archive_id!r} within {timeout}s. "
+            f"Try `archive-agent jellyfin resolve {archive_id}` again shortly.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    typer.echo(f"{archive_id}  ->  jellyfin_item_id={item_id}")
+
+
 # --- logs ---
 logs_app = typer.Typer(no_args_is_help=True, help="Tail and inspect agent logs.")
 app.add_typer(logs_app, name="logs")

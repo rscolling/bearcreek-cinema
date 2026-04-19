@@ -33,7 +33,7 @@ history is ingested into state DB; Ollama round-trip works.
 - [x] `phase2-06-librarian-placement.md` — `place()` + file move logic
 - [x] `phase2-07-librarian-eviction.md` — eviction policies
 - [ ] `phase2-08-librarian-tv-sampler.md` — sampler-first TV policy
-- [ ] `phase2-09-jellyfin-placement.md` — file naming + library scan
+- [x] `phase2-09-jellyfin-placement.md` — file naming + library scan
   triggering
 
 **Phase 2 done when:** `archive-agent download <movie-id>` results in a

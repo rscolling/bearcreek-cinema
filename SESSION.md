@@ -1,6 +1,6 @@
 # SESSION
 
-**Last updated:** 2026-04-19 by phase2 cards 03 + 06 (tv-grouping live against real IA data; librarian placement + promotion + Jellyfin-compatible naming)
+**Last updated:** 2026-04-19 by phase2 cards 07 + 09 (eviction TTL plan/execute + Jellyfin library scan and item-id resolution)
 
 Cross-session continuity for Claude Code working on Bear Creek Cinema.
 Read at the start of every session. Updated at the end of every session.
@@ -19,14 +19,20 @@ progress goes to the checklist in `claude-code-pack/TASKS/README.md`.
 state DB, Jellyfin client, LLMProvider skeleton, and logging +
 observability are all landed.
 
-**Active task:** None. Phase 2 in progress: **6 of 9 cards done**
+**Active task:** None. Phase 2 in progress: **8 of 9 cards done**
 (01 discovery, 02 TMDb enrichment, 03 tv-grouping, 04 downloader,
-05 librarian core, 06 placement). Remaining working order:
+05 librarian core, 06 placement, 07 eviction, 09 jellyfin-placement).
 
-- **Next, parallel:** `phase2-09-jellyfin-placement` (needs 06) and
-  `phase2-07-librarian-eviction` (needs 05 + 06).
-- **Last:** `phase2-08-librarian-tv-sampler` (needs 04 / 05 / 06 /
-  07 / 09 — the capstone).
+Only one remaining: `phase2-08-librarian-tv-sampler` — the capstone
+that wires sampler-first TV flow (download 3 episodes → watch 2+
+in 14 days → promote Season 1 → promote subsequent seasons). It
+depends on everything else done so far, so it's the last thing to
+land Phase 2.
+
+After Phase 2: `archive-agent download <id>` → place → scan →
+resolve flow produces a playable, Jellyfin-indexed item end-to-end;
+the librarian evicts on pressure; the TV sampler promotes shows
+that get real engagement.
 
 Phase 2 done when: `archive-agent download <movie-id>` produces a
 playable file in Jellyfin; librarian enforces budget and evicts
@@ -80,6 +86,42 @@ package installed editable with dev extras.
 ## Recent sessions
 
 *Most recent first. Prune entries older than the last 5 retained.*
+
+### 2026-04-19 — phase2 cards 07 + 09 (eviction, jellyfin placement)
+
+- **phase2-07 eviction** (commit `26cac40`) — `plan_eviction`
+  walks /media/recommendations (14d TTL) + /media/tv-sampler (30d
+  TTL) when agent usage is over `max_disk_gb`, picks oldest-stale
+  folders first, stops at overage. `execute_eviction` rmtrees the
+  plan items, writes `librarian_actions action='evict'` rows, sets
+  `candidates.status=EXPIRED` when the folder maps back to a row.
+  Touch-time precedence: `show_state.last_playback_at` >
+  `candidate.discovered_at` > filesystem mtime. Never atime.
+  Hard-guardrails encoded in code: /media/movies never in the plan,
+  /media/tv requires explicit propose+grace (stub
+  `propose_committed_tv_eviction` writes an `action='skip'` row
+  with `reason=committed_eviction_proposed:grace_days=N`). Blocked
+  plans emit a loud `eviction_blocked` WARN even on --dry-run.
+  20 new tests (plan + execute + blocked paths; capsys over stderr
+  because `configure_logging(force=True)` resets pytest's caplog)
+- **phase2-09 jellyfin-placement** (commit `<next>`) —
+  `resolve_libraries` maps the four expected /media paths to
+  Jellyfin library ids via `/Library/VirtualFolders`. Loud
+  `MissingLibraryError` when any zone lacks a library, pointing at
+  the new ENVIRONMENT.md setup checklist (user creates
+  "Recommendations" and "TV Sampler" custom libraries at first
+  deploy). `_find_item_for_candidate` scopes searches to
+  `ParentId=<library_id>` so the same film in movies vs
+  recommendations doesn't cross-match. `scan_and_resolve`
+  triggers a scan, polls every 2s up to 90s, writes
+  `candidates.jellyfin_item_id`, returns None + WARN on timeout.
+  `scan_zones` batches library refreshes with dedup. CLI:
+  `jellyfin scan [--zone=all|...]` + `jellyfin resolve <id>`.
+  19 new tests incl. path normalization (Windows slashes / case /
+  trailing slash), ItemId-vs-Id back-compat, title+year
+  disambiguation (The Lost World 1925 vs 1960), episode
+  season/episode matching, and scan_and_resolve timeout path.
+  **278 unit total**, mypy --strict clean on 51 source files
 
 ### 2026-04-19 — phase2 cards 03 + 06 (tv-grouping, placement)
 
@@ -224,48 +266,6 @@ to sequential in-session execution.
 - Two migrations flagged for phase 2: 003 (metadata_cache) in
   phase2-02, 004 (tv_grouping_review) in phase2-03
 - No code changes this session
-
-### 2026-04-19 — phase1-06: structlog + redaction + llm_calls audit — Phase 1 complete
-
-- `logging.py` — `configure_logging(level, fmt)` sets up structlog with
-  json or console renderer, forces `logging.basicConfig` to override
-  any prior handlers, and installs the custom `redact_processor`.
-  `get_logger(name)` returns a typed BoundLogger
-- Redaction rules: exact, prefix-with-underscore, or
-  suffix-with-underscore against `{api_key, token, password, secret,
-  authorization}`. Tightened from substring matching because the first
-  version redacted `input_tokens` / `output_tokens` as `***` — they're
-  counters, not secrets. New regression test guards against that
-- `ranking/audit.py` — `audit_llm_call(provider, model, workflow,
-  conn=)` async context manager. Times the call, classifies outcome
-  (`ok` | `malformed` | `timeout` | `error` | `fallback`), writes one
-  row to `llm_calls` on exit, emits a structured `event=llm_call` log
-  line. Re-raises exceptions after the row is recorded — `outcome=error`
-  shows up in the audit log even when the call fails loudly. `conn=None`
-  is a silent no-op for scripts that want just the timing wrapper
-- Refactored all three providers: OllamaProvider, ClaudeProvider,
-  TFIDFProvider now route through `audit_llm_call` instead of
-  hand-rolled `_log()`. Claude still has its own early-out for
-  "api_key is None" so a disabled provider doesn't pollute the audit log
-- CLI: `archive-agent logs tail [--lines --follow]` shells out to
-  `docker compose logs archive-agent` (or journalctl) when available;
-  `archive-agent llm-calls stats` summarises the audit table (totals,
-  by-provider, by-outcome, p50/p95/p99 latencies per (provider,
-  workflow), last N rows)
-- `@app.callback()` runs `configure_logging` before every subcommand,
-  reading `[logging]` from config when loadable, else defaulting to
-  `INFO json`. Respects `ARCHIVE_AGENT_LOG_LEVEL` env override
-- Tests: 11 new (7 logging + 4 audit). The audit tests cover happy
-  path, exception re-raise with `outcome=error`, `TimeoutError` →
-  `outcome=timeout`, explicit outcome overrides, `fallback` outcome,
-  silent operation without conn, and monotonic `latency_ms`. Total
-  suite: 77 unit + 4 integration
-- Live: 3x `health ollama` → `llm-calls stats` shows 3 rows,
-  p50/p95/p99 ≈ 5.5 s (CPU-only qwen2.5:7b on cold cache), all
-  outcomes `ok`. `config show` emits `api_key: "**********"` for
-  every secret field. `logs tail` on blueridge prints a helpful
-  "run this on don-quixote" message since neither `docker` nor
-  `journalctl` is on the laptop's PATH
 
 ---
 
