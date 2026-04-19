@@ -282,8 +282,32 @@ app.add_typer(librarian_app, name="librarian")
 
 @librarian_app.command("status")
 def librarian_status() -> None:
-    """Print disk usage per zone and budget headroom."""
-    _not_implemented("librarian status")
+    """Print disk usage per zone + budget headroom (JSON + one-line summary)."""
+    from archive_agent.config import ConfigError, load_config
+    from archive_agent.librarian import AGENT_MANAGED, Zone, budget_report
+
+    try:
+        cfg = load_config()
+    except ConfigError as exc:
+        typer.echo(f"ERROR: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+
+    report = budget_report(cfg)
+    typer.echo(report.model_dump_json(indent=2))
+
+    def _gb(n: int) -> str:
+        return f"{n / 1_000_000_000:,.1f} GB"
+
+    pct = int(report.agent_used_bytes * 100 / report.budget_bytes) if report.budget_bytes else 0
+    typer.echo(
+        f"\nAgent-managed: {_gb(report.agent_used_bytes)} / "
+        f"{_gb(report.budget_bytes)} ({pct}%), "
+        f"{_gb(report.headroom_bytes)} headroom."
+    )
+    for z in Zone:
+        u = next(u for u in report.zones if u.zone == z)
+        tag = "" if z in AGENT_MANAGED else "  (user-owned, outside budget)"
+        typer.echo(f"  {z.value:<16} {u.file_count:>6} files, {_gb(u.used_bytes):>10}{tag}")
 
 
 @librarian_app.command("evict")
