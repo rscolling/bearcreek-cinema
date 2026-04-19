@@ -1,6 +1,6 @@
 # SESSION
 
-**Last updated:** 2026-04-19 by phase1-06 logging-observability session (structlog + redaction + audit_llm_call context manager; Phase 1 complete)
+**Last updated:** 2026-04-19 by phase-2 card-writing session (9 task cards for Phase 2 drafted; no code changes)
 
 Cross-session continuity for Claude Code working on Bear Creek Cinema.
 Read at the start of every session. Updated at the end of every session.
@@ -19,12 +19,24 @@ progress goes to the checklist in `claude-code-pack/TASKS/README.md`.
 state DB, Jellyfin client, LLMProvider skeleton, and logging +
 observability are all landed.
 
-**Active task:** None. Phase 2 (Archive.org discovery + librarian) is
-next: `phase2-01-archive-discovery`, `phase2-02-tmdb-enrichment`,
-`phase2-03-tv-grouping`, `phase2-04-ia-get-downloader`,
-`phase2-05-librarian-core` … etc. No task cards exist yet for phase 2
-beyond the roadmap entries in `TASKS/README.md` — they'll need to be
-written before implementation starts.
+**Active task:** None. Phase 2 cards are now drafted (9 of them).
+Reasonable working order:
+
+- **First:** `phase2-05-librarian-core` (foundational — no upstream deps)
+  and `phase2-01-archive-discovery` (independent of librarian), in
+  parallel.
+- **Then:** `phase2-02-tmdb-enrichment` (needs 01), `phase2-04-ia-get-downloader`
+  (needs 01).
+- **Then:** `phase2-03-tv-grouping` (needs 01 + 02),
+  `phase2-06-librarian-placement` (needs 04 + 05).
+- **Then:** `phase2-09-jellyfin-placement` (needs 06),
+  `phase2-07-librarian-eviction` (needs 05 + 06).
+- **Last:** `phase2-08-librarian-tv-sampler` (needs 04 / 05 / 06 /
+  07 / 09).
+
+Phase 2 done when: `archive-agent download <movie-id>` produces a
+playable file in Jellyfin; librarian enforces budget and evicts
+ephemeral content; TV sampler flow promotes one show end-to-end.
 
 **Codebase state:** Python package live at `src/archive_agent/` with
 stub CLI (10 command groups, all exit 1), `tests/` scaffold with two
@@ -74,6 +86,37 @@ package installed editable with dev extras.
 ## Recent sessions
 
 *Most recent first. Prune entries older than the last 5 retained.*
+
+### 2026-04-19 — Phase 2 task cards drafted (9 cards, no code)
+
+- Wrote full task cards for every phase 2 entry already listed in
+  `TASKS/README.md`:
+  `phase2-01-archive-discovery` (Archive.org search, collection
+  scanning, `candidates` upsert),
+  `phase2-02-tmdb-enrichment` (TMDb client with SQLite cache;
+  requires migration 003 for `metadata_cache`),
+  `phase2-03-tv-grouping` (episode→show heuristics + SxEy parser +
+  low-confidence review queue; migration 004 for `tv_grouping_review`),
+  `phase2-04-ia-get-downloader` (subprocess wrapper with Python
+  library fallback; format preference; concurrency governor),
+  `phase2-05-librarian-core` (Zone enum, `BudgetReport`, audit
+  helper),
+  `phase2-06-librarian-placement` (the **only** module that calls
+  `shutil.move` under `/media/*`; Jellyfin-friendly naming;
+  `promote_movie` / `promote_show`),
+  `phase2-07-librarian-eviction` (TTL-driven plan; hard-filter on
+  `/media/movies`; committed-TV requires propose+grace path,
+  deferred execution),
+  `phase2-08-librarian-tv-sampler` (the decision table for
+  sample / promote / wait / evict; Season-N advancement),
+  `phase2-09-jellyfin-placement` (scan + item-id resolution;
+  `LibraryMap` with required zone libraries; user-side setup note
+  for the two custom Jellyfin libraries)
+- Surfaced dependencies between cards in each card's "Prerequisites"
+  section and the ordering block above
+- Two migrations flagged for phase 2: 003 (metadata_cache) in
+  phase2-02, 004 (tv_grouping_review) in phase2-03
+- No code changes this session
 
 ### 2026-04-19 — phase1-06: structlog + redaction + llm_calls audit — Phase 1 complete
 
@@ -219,40 +262,6 @@ package installed editable with dev extras.
   init --dry-run` reports `[1]`, `state init` applies, `state info`
   lists all 9 tables, second `state init` is a no-op, `state backup`
   copies the 100 KB DB file
-
-### 2026-04-19 — phase1-02: typed TOML config + env interpolation
-
-- Wrote `src/archive_agent/config.py`: Pydantic models per CONTRACTS.md
-  §5 (Paths, Jellyfin, Archive, Tmdb, Llm{Workflows,Ollama,Claude},
-  Librarian{,Tv}, Api, Logging, Config). Secrets wrapped in
-  `SecretStr` so `model_dump_json` redacts them automatically
-- Loader resolution: explicit path → `ARCHIVE_AGENT_CONFIG` →
-  `./config.toml` → `$XDG_CONFIG_HOME/archive-agent/config.toml` →
-  `~/.config/archive-agent/config.toml`. Uses stdlib `tomllib`.
-  `.env` loaded via `python-dotenv` before interpolation
-- Env interpolation: `${VAR}` required, `${VAR:-fallback}` optional
-  (matches bash). Missing vars without a fallback raise `ConfigError`
-  with the var name AND the TOML path that referenced it
-- `validate_config(cfg) -> (warnings, errors)` for cross-field checks
-  Pydantic can't express: distinct media paths, DNS-resolvable hosts,
-  directories that exist, year-range sanity, claude-selected-but-unset
-- CLI wiring: `archive-agent config show` dumps redacted JSON;
-  `archive-agent config validate` prints warnings (exit 0) or errors
-  (exit 2)
-- 12 new unit tests cover happy path, missing-var error, fallback
-  syntax, file-not-found listing, explicit-path precedence, secret
-  redaction, each validator branch, and interpolation recursion.
-  Total: 14 tests pass
-- Live check on blueridge: `cp config.example.toml config.toml`,
-  `archive-agent config show` prints clean JSON with
-  `api_key: "**********"`, `archive-agent config validate` returns
-  "Config OK (6 warning(s))" — the 6 warnings are Docker hostnames
-  not resolving and `/media/*` not existing (expected outside the
-  container)
-- Added `dotenv.*` to `pyproject.toml`'s `mypy.overrides` so the
-  pre-commit mypy hook (isolated env) doesn't trip on the untyped
-  package. Also tweaked `config.example.toml` so the Claude key uses
-  the new `${ANTHROPIC_API_KEY:-}` optional syntax
 
 ---
 
