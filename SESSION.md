@@ -1,6 +1,6 @@
 # SESSION
 
-**Last updated:** 2026-04-19 by phase-2 card-writing session (9 task cards for Phase 2 drafted; no code changes)
+**Last updated:** 2026-04-19 by phase2-01 discovery session (Archive.org search + candidates upsert, live 10-item discover works end-to-end)
 
 Cross-session continuity for Claude Code working on Bear Creek Cinema.
 Read at the start of every session. Updated at the end of every session.
@@ -19,15 +19,13 @@ progress goes to the checklist in `claude-code-pack/TASKS/README.md`.
 state DB, Jellyfin client, LLMProvider skeleton, and logging +
 observability are all landed.
 
-**Active task:** None. Phase 2 cards are now drafted (9 of them).
-Reasonable working order:
+**Active task:** None. Phase 2 in progress: 1 of 9 cards done
+(phase2-01 discovery). Remaining working order:
 
-- **First:** `phase2-05-librarian-core` (foundational — no upstream deps)
-  and `phase2-01-archive-discovery` (independent of librarian), in
-  parallel.
-- **Then:** `phase2-02-tmdb-enrichment` (needs 01), `phase2-04-ia-get-downloader`
-  (needs 01).
-- **Then:** `phase2-03-tv-grouping` (needs 01 + 02),
+- **Next, parallel:** `phase2-05-librarian-core` (foundational),
+  `phase2-02-tmdb-enrichment` (enriches phase2-01's candidates),
+  `phase2-04-ia-get-downloader` (operates on phase2-01's candidates).
+- **Then:** `phase2-03-tv-grouping` (needs 02),
   `phase2-06-librarian-placement` (needs 04 + 05).
 - **Then:** `phase2-09-jellyfin-placement` (needs 06),
   `phase2-07-librarian-eviction` (needs 05 + 06).
@@ -86,6 +84,38 @@ package installed editable with dev extras.
 ## Recent sessions
 
 *Most recent first. Prune entries older than the last 5 retained.*
+
+### 2026-04-19 — phase2-01: Archive.org discovery live
+
+- `archive/search.py` — `search_collection(collection, ...)` yields
+  normalized `ArchiveSearchResult`s from `internetarchive.search_items`.
+  Runs the sync library call in a thread so we don't stall the loop.
+  Defensive parsing: runtime strings (`"1:07:39"` → 67, `"Approx 30
+  Minutes"` → 30, `"25:17"` → 25, unparseable → None); `subject`
+  coerces scalar-or-list; `year` coerces int-or-string. The raw IA
+  search returns a lot more fields than we model; `extra='ignore'`
+  keeps us resilient to schema drift
+- `archive/discovery.py` — `discover(conn, config, collection=, limit=)`
+  wires search → `search_result_to_candidate` → `upsert_candidate`.
+  Content-type heuristic: `moviesandfilms` → MOVIE,
+  `television` → EPISODE (phase2-03 will reclassify some as SHOW).
+  Genre normalization: lowercase + dedup + sort.
+  `_merge_status` preserves a candidate's existing status on
+  re-discovery so we never roll APPROVED / DOWNLOADING / etc. back to NEW
+- `DiscoverResult` reports inserted / updated / skipped_quality /
+  skipped_year / by_collection counters
+- CLI: `archive-agent discover [--collection ...] [--limit N]` replaces
+  the stub
+- Tests: 21 new (11 search-parsing including every runtime format
+  variant and scalar-subject coercion; 10 discovery including
+  idempotency, single-vs-both collections, status preservation,
+  quality/year rejection counters). Integration: 2 live tests
+  (one per collection, limit=3). Total: 98 unit + 6 integration
+- Live run against Archive.org: `limit=10` on moviesandfilms →
+  inserted 10; second run → updated 10, inserted 0. Real titles land
+  (*Meet John Doe* 1941, *Ministry Of Fear* 1944, *Panther's Claw*
+  1942, ...)
+- Ticked `phase2-01` in `TASKS/README.md`
 
 ### 2026-04-19 — Phase 2 task cards drafted (9 cards, no code)
 
@@ -231,37 +261,6 @@ package installed editable with dev extras.
 - Added `httpx.*` and `structlog.*` to pyproject `mypy.overrides` so
   the pre-commit sandbox mypy (which only sees declared
   additional_dependencies) doesn't trip on untyped-import errors
-
-### 2026-04-19 — phase1-03: state DB schema + migrations + queries
-
-- `state/models.py` — 11 Pydantic models mirroring CONTRACTS.md §1
-  (ContentType/CandidateStatus/TasteEventKind as StrEnum; Candidate,
-  TasteEvent, EpisodeWatch, ShowState, EraPreference, TasteProfile,
-  RankedCandidate, SearchFilter). TasteEvent validators reject
-  content_type=EPISODE and require one of archive_id/show_id
-- `state/schema.sql` — DDL for 9 tables with CHECK constraints
-  matching the Pydantic invariants (content_type enums, valid zones,
-  positive strength/completion, archive_id XOR show_id on taste_events)
-- `state/migrations/` — filename-ordered `NNN_*.py` migrations loaded
-  via `importlib.util.spec_from_file_location` (filenames start with
-  a digit — not valid module names). `apply_pending`, `current_version`,
-  `revert_version`, `pending_versions` all public
-- `state/db.py` — connection factory (`connect`), singleton
-  (`get_db`), `init_db(path, dry_run=)`, `close_db`, `reset_cached_db`.
-  Enables WAL mode + foreign_keys on on-disk DBs; :memory: stays
-  default for speed
-- `state/queries/` — per-entity modules (candidates, taste_events,
-  episode_watches, show_state, downloads, llm_calls) with JSON
-  round-trip for list columns and ISO-8601 datetimes
-- CLI: `archive-agent state init [--dry-run]`, `state info`,
-  `state backup <path>`; `state` is the 11th top-level group
-- Tests: 24 new (7 candidates, 6 migrations, 7 models, 4 taste_events)
-  using an in-memory DB fixture with full migrations applied. Total
-  suite: 38 pass
-- Verified live on blueridge via an isolated scratch config: `state
-  init --dry-run` reports `[1]`, `state init` applies, `state info`
-  lists all 9 tables, second `state init` is a no-op, `state backup`
-  copies the 100 KB DB file
 
 ---
 

@@ -23,7 +23,7 @@ history is ingested into state DB; Ollama round-trip works.
 
 ## Phase 2: Downloader + Librarian
 
-- [ ] `phase2-01-archive-discovery.md` — Archive.org search for both
+- [x] `phase2-01-archive-discovery.md` — Archive.org search for both
   collections
 - [ ] `phase2-02-tmdb-enrichment.md` — TMDb lookups with caching
 - [ ] `phase2-03-tv-grouping.md` — episode→show association heuristics

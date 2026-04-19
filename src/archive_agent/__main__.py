@@ -197,10 +197,33 @@ def history_sync(
 @app.command()
 def discover(
     collection: str = typer.Option("both", help="moviesandfilms | television | both"),
-    limit: int = typer.Option(100, help="Max candidates to fetch"),
+    limit: int = typer.Option(100, help="Max candidates per collection"),
 ) -> None:
-    """Discover candidate items from Archive.org."""
-    _not_implemented("discover")
+    """Discover candidate items from Archive.org and upsert them into the state DB."""
+    import asyncio
+
+    from archive_agent.archive.discovery import discover as _run_discover
+    from archive_agent.config import ConfigError, load_config
+    from archive_agent.state.db import get_db, init_db
+
+    if collection not in {"moviesandfilms", "television", "both"}:
+        typer.echo(
+            f"invalid --collection={collection!r}; expected moviesandfilms|television|both",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+
+    try:
+        cfg = load_config()
+    except ConfigError as exc:
+        typer.echo(f"ERROR: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+
+    init_db(cfg.paths.state_db)
+    conn = get_db()
+
+    result = asyncio.run(_run_discover(conn, cfg, collection=collection, limit=limit))  # type: ignore[arg-type]
+    typer.echo(result.model_dump_json(indent=2))
 
 
 # --- download ---
