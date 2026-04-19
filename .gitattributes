@@ -1,0 +1,51 @@
+# Text files normalize to LF on checkin and check out as LF on every
+# platform, including Windows. Shell scripts and the Dockerfile must be
+# LF to execute in Linux containers on don-quixote; everything else is
+# LF for consistency between the Windows dev laptop (blueridge) and the
+# Ubuntu deployment host.
+
+* text=auto eol=lf
+
+# Explicit: code and config
+*.py      text eol=lf
+*.sh      text eol=lf
+*.toml    text eol=lf
+*.yml     text eol=lf
+*.yaml    text eol=lf
+*.json    text eol=lf
+*.md      text eol=lf
+*.cfg     text eol=lf
+*.ini     text eol=lf
+*.env     text eol=lf
+
+# BrightScript + SceneGraph for the Roku app (Phase 5)
+*.brs     text eol=lf
+*.xml     text eol=lf
+
+# Docker
+Dockerfile        text eol=lf
+.dockerignore     text eol=lf
+docker-compose*.yml text eol=lf
+
+# Binary media — never normalize
+*.mp4     binary
+*.mkv     binary
+*.mov     binary
+*.avi     binary
+*.webm    binary
+*.png     binary
+*.jpg     binary
+*.jpeg    binary
+*.gif     binary
+*.webp    binary
+*.ico     binary
+*.pdf     binary
+*.zip     binary
+*.gz      binary
+*.tar     binary
+*.db      binary
+*.sqlite  binary
+
+# Windows-specific helper scripts, if any ever land
+*.bat     text eol=crlf
+*.cmd     text eol=crlf
