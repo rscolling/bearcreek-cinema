@@ -1,0 +1,34 @@
+{
+  "items": [
+    {
+      "archive_id": "TheStranger_1946",
+      "rank": 1,
+      "score": 0.94,
+      "reasoning": "A postwar Welles thriller directly adjacent to The Third Man in tone and era; the household's strongest cluster. High confidence."
+    },
+    {
+      "archive_id": "DOA_1949",
+      "rank": 2,
+      "score": 0.88,
+      "reasoning": "1949 noir with tight runtime and strong mystery hook; matches the 1940s noir preference without being derivative of films already watched."
+    },
+    {
+      "archive_id": "Beverly_Hillbillies_S01E01",
+      "rank": 3,
+      "score": 0.71,
+      "reasoning": "Classic sitcom in the Dick Van Dyke Show neighborhood. Short runtime fits weeknight viewing. Low risk sampler."
+    },
+    {
+      "archive_id": "LucyShow_Collection_S01",
+      "rank": 4,
+      "score": 0.68,
+      "reasoning": "Lucille Ball vehicle follows household's sitcom pattern. Full-season archive item — recommend sampler-first."
+    },
+    {
+      "archive_id": "classic_tv_variety_hour_s03e14",
+      "rank": 5,
+      "score": 0.22,
+      "reasoning": "Low download count and ambiguous series association make this a weak pick; included only because no higher-confidence variety options in pool."
+    }
+  ]
+}

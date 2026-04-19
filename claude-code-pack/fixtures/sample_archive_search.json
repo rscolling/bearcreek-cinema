@@ -1,0 +1,91 @@
+{
+  "response": {
+    "numFound": 12458,
+    "start": 0,
+    "docs": [
+      {
+        "identifier": "TheStranger_1946",
+        "title": "The Stranger (1946)",
+        "mediatype": "movies",
+        "collection": ["feature_films", "moviesandfilms"],
+        "creator": "Orson Welles",
+        "date": "1946-05-25T00:00:00Z",
+        "year": 1946,
+        "description": "Orson Welles stars as a Nazi war criminal hiding in a small Connecticut town. Edward G. Robinson plays the investigator on his trail. Public domain.",
+        "runtime": "95 minutes",
+        "subject": ["film noir", "thriller", "wwii"],
+        "downloads": 184230,
+        "item_size": 1423000000,
+        "format": ["Matroska", "MPEG4", "512Kb MPEG4"]
+      },
+      {
+        "identifier": "Beverly_Hillbillies_S01E01",
+        "title": "The Beverly Hillbillies - S01E01 - The Clampetts Strike Oil",
+        "mediatype": "movies",
+        "collection": ["classic_tv", "television"],
+        "date": "1962-09-26T00:00:00Z",
+        "year": 1962,
+        "description": "The pilot episode. Jed Clampett strikes oil while hunting and becomes an overnight millionaire.",
+        "runtime": "26 minutes",
+        "subject": ["sitcom", "classic tv"],
+        "downloads": 52140,
+        "item_size": 380000000,
+        "format": ["MPEG4", "Matroska"]
+      },
+      {
+        "identifier": "Beverly_Hillbillies_S01E02",
+        "title": "The Beverly Hillbillies - S01E02 - Getting Settled",
+        "mediatype": "movies",
+        "collection": ["classic_tv", "television"],
+        "date": "1962-10-03T00:00:00Z",
+        "year": 1962,
+        "description": "The Clampett family settles into their Beverly Hills mansion.",
+        "runtime": "26 minutes",
+        "subject": ["sitcom", "classic tv"],
+        "downloads": 48120,
+        "item_size": 380000000,
+        "format": ["MPEG4", "Matroska"]
+      },
+      {
+        "identifier": "DOA_1949",
+        "title": "D.O.A. (1949)",
+        "mediatype": "movies",
+        "collection": ["feature_films", "moviesandfilms"],
+        "date": "1949-04-30T00:00:00Z",
+        "year": 1949,
+        "description": "A man races against time to find his own killer after being poisoned. Classic film noir, public domain.",
+        "runtime": "83 minutes",
+        "subject": ["film noir", "mystery"],
+        "downloads": 127890,
+        "item_size": 980000000,
+        "format": ["MPEG4", "Matroska", "512Kb MPEG4"]
+      },
+      {
+        "identifier": "LucyShow_Collection_S01",
+        "title": "The Lucy Show - Season 1 (1962) - 30 Episodes",
+        "mediatype": "movies",
+        "collection": ["television"],
+        "date": "1962-10-01T00:00:00Z",
+        "year": 1962,
+        "description": "Season 1 of The Lucy Show. 30 episodes packaged as one archive item. Multiple files.",
+        "subject": ["sitcom", "lucille ball"],
+        "downloads": 28450,
+        "item_size": 9800000000,
+        "format": ["MPEG4"]
+      },
+      {
+        "identifier": "classic_tv_variety_hour_s03e14",
+        "title": "ClassicTV Episode 14 Season 3",
+        "mediatype": "movies",
+        "collection": ["television"],
+        "date": "1958-01-01T00:00:00Z",
+        "year": 1958,
+        "description": "Variety show episode. Unclear series association.",
+        "runtime": "50 minutes",
+        "downloads": 342,
+        "item_size": 420000000,
+        "format": ["MPEG4"]
+      }
+    ]
+  }
+}

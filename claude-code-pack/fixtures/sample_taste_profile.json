@@ -1,0 +1,41 @@
+{
+  "version": 7,
+  "updated_at": "2026-03-15T06:30:00Z",
+  "liked_genres": [
+    "Film-Noir",
+    "Comedy",
+    "Mystery",
+    "Screwball",
+    "Pre-Code",
+    "Sitcom"
+  ],
+  "disliked_genres": [
+    "Horror",
+    "Slasher",
+    "Body-Horror"
+  ],
+  "era_preferences": [
+    {"decade": 1930, "weight": 0.7},
+    {"decade": 1940, "weight": 0.9},
+    {"decade": 1950, "weight": 0.6},
+    {"decade": 1960, "weight": 0.5},
+    {"decade": 1970, "weight": 0.1},
+    {"decade": 1980, "weight": -0.2}
+  ],
+  "runtime_tolerance_minutes": 130,
+  "liked_archive_ids": [
+    "TheThirdMan_1949",
+    "HisGirlFriday_1940",
+    "TheThinMan_1934"
+  ],
+  "liked_show_ids": [
+    "tmdb:1992",
+    "tmdb:2330"
+  ],
+  "disliked_archive_ids": [
+    "CarnivalOfSouls_1962",
+    "NightOfTheLivingDead_1968"
+  ],
+  "disliked_show_ids": [],
+  "summary": "The household gravitates toward classic Hollywood with a strong pull toward pre-1960 films. Film noir from the 1940s is a clear sweet spot — The Third Man was a recent rewatch, and the system has high confidence on that cluster (Carol Reed, Welles-adjacent, postwar European atmosphere). Screwball comedy is the other consistent positive: His Girl Friday, The Thin Man, and anything with fast verbal patter lands well. In TV, the pattern follows — classic sitcoms with strong ensemble comedy (The Dick Van Dyke Show is being watched through steadily). Horror is reliably rejected, especially anything with body-horror or slasher elements; Carnival of Souls was abandoned at 18%. Runtime tolerance is around 130 minutes; three-hour epics go unfinished. No strong preference for musicals or westerns observed yet — treat those as neutral when ranking, probe occasionally. Recent color-era picks (1970s+) show weaker engagement, suggesting the household's taste really does sit pre-1970."
+}

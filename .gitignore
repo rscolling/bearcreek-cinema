@@ -1,0 +1,98 @@
+# === SECRETS — never commit these ===
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+config.toml
+!config.example.toml
+secrets/
+
+# === Python ===
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Test / coverage
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+.pytest_cache/
+htmlcov/
+coverage.xml
+*.cover
+.hypothesis/
+
+# Type checking
+.mypy_cache/
+.dmypy.json
+.pytype/
+
+# Lint
+.ruff_cache/
+
+# === IDE ===
+.idea/
+.vscode/
+*.sublime-*
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# === Application-specific ===
+# Dev state (never checked in)
+dev-media/
+dev-state/
+/tmp/archive-agent-dev/
+
+# Roku build outputs
+roku/bear-creek-cinema/out/
+roku/bear-creek-cinema/*.zip
+
+# Local logs
+logs/
+*.log
+
+# SQLite runtime files
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Large local files
+*.mp4
+*.mkv
+*.avi
+*.mov
+
+# OS / editor
+*.bak
+*.tmp

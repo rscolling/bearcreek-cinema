@@ -1,0 +1,130 @@
+{
+  "Items": [
+    {
+      "Name": "The Third Man",
+      "Id": "a1b2c3d4e5f600000000000000000001",
+      "Type": "Movie",
+      "ProductionYear": 1949,
+      "RunTimeTicks": 63600000000,
+      "Genres": ["Film-Noir", "Mystery", "Thriller"],
+      "Overview": "Pulp novelist Holly Martins travels to shadowy, postwar Vienna, only to find himself investigating the mysterious death of an old friend.",
+      "ProviderIds": {"Tmdb": "1092", "Imdb": "tt0041959"},
+      "UserData": {
+        "PlayedPercentage": 100.0,
+        "PlayCount": 2,
+        "IsFavorite": true,
+        "LastPlayedDate": "2025-11-14T22:15:00.000Z",
+        "Played": true
+      }
+    },
+    {
+      "Name": "His Girl Friday",
+      "Id": "a1b2c3d4e5f600000000000000000002",
+      "Type": "Movie",
+      "ProductionYear": 1940,
+      "RunTimeTicks": 55200000000,
+      "Genres": ["Comedy", "Romance"],
+      "Overview": "A newspaper editor uses every trick in the book to keep his ace reporter ex-wife from remarrying.",
+      "ProviderIds": {"Tmdb": "3085", "Imdb": "tt0032599"},
+      "UserData": {
+        "PlayedPercentage": 97.3,
+        "PlayCount": 1,
+        "IsFavorite": true,
+        "LastPlayedDate": "2025-10-22T20:05:00.000Z",
+        "Played": true
+      }
+    },
+    {
+      "Name": "Carnival of Souls",
+      "Id": "a1b2c3d4e5f600000000000000000003",
+      "Type": "Movie",
+      "ProductionYear": 1962,
+      "RunTimeTicks": 47400000000,
+      "Genres": ["Horror"],
+      "Overview": "After a tragic accident, a woman drifts into a hauntingly surreal existence.",
+      "ProviderIds": {"Tmdb": "30497", "Imdb": "tt0055830"},
+      "UserData": {
+        "PlayedPercentage": 18.2,
+        "PlayCount": 1,
+        "IsFavorite": false,
+        "LastPlayedDate": "2025-09-03T21:40:00.000Z",
+        "Played": false
+      }
+    },
+    {
+      "Name": "Meet John Doe",
+      "Id": "a1b2c3d4e5f600000000000000000004",
+      "Type": "Movie",
+      "ProductionYear": 1941,
+      "RunTimeTicks": 74400000000,
+      "Genres": ["Drama", "Comedy"],
+      "Overview": "Frank Capra drama about a drifter who becomes the front for a populist political movement.",
+      "ProviderIds": {"Tmdb": "22498"},
+      "UserData": {
+        "PlayedPercentage": 0.0,
+        "PlayCount": 0,
+        "IsFavorite": false,
+        "LastPlayedDate": null,
+        "Played": false
+      }
+    },
+    {
+      "Name": "The Dick Van Dyke Show",
+      "Id": "a1b2c3d4e5f600000000000000000101",
+      "Type": "Episode",
+      "SeriesName": "The Dick Van Dyke Show",
+      "SeriesId": "a1b2c3d4e5f600000000000000000100",
+      "ParentIndexNumber": 1,
+      "IndexNumber": 1,
+      "ProductionYear": 1961,
+      "RunTimeTicks": 15600000000,
+      "Overview": "The Sick Boy and the Sitter.",
+      "UserData": {
+        "PlayedPercentage": 100.0,
+        "PlayCount": 1,
+        "IsFavorite": false,
+        "LastPlayedDate": "2025-11-01T19:30:00.000Z",
+        "Played": true
+      }
+    },
+    {
+      "Name": "The Dick Van Dyke Show",
+      "Id": "a1b2c3d4e5f600000000000000000102",
+      "Type": "Episode",
+      "SeriesName": "The Dick Van Dyke Show",
+      "SeriesId": "a1b2c3d4e5f600000000000000000100",
+      "ParentIndexNumber": 1,
+      "IndexNumber": 2,
+      "ProductionYear": 1961,
+      "RunTimeTicks": 15600000000,
+      "Overview": "My Blonde-Haired Brunette.",
+      "UserData": {
+        "PlayedPercentage": 100.0,
+        "PlayCount": 1,
+        "IsFavorite": false,
+        "LastPlayedDate": "2025-11-02T20:00:00.000Z",
+        "Played": true
+      }
+    },
+    {
+      "Name": "The Dick Van Dyke Show",
+      "Id": "a1b2c3d4e5f600000000000000000103",
+      "Type": "Episode",
+      "SeriesName": "The Dick Van Dyke Show",
+      "SeriesId": "a1b2c3d4e5f600000000000000000100",
+      "ParentIndexNumber": 1,
+      "IndexNumber": 3,
+      "ProductionYear": 1961,
+      "RunTimeTicks": 15600000000,
+      "UserData": {
+        "PlayedPercentage": 88.5,
+        "PlayCount": 1,
+        "IsFavorite": false,
+        "LastPlayedDate": "2025-11-03T20:10:00.000Z",
+        "Played": false
+      }
+    }
+  ],
+  "TotalRecordCount": 7,
+  "StartIndex": 0
+}
