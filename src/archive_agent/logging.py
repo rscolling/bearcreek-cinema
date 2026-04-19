@@ -86,6 +86,15 @@ def configure_logging(
         level=stdlib_level,
         force=True,
     )
+    # httpx / httpcore / openai log full request URLs at INFO, which includes
+    # query-string ``api_key=...`` values (TMDb) and path-embedded IDs. Those
+    # don't pass through our redact_processor (which only sees structlog
+    # events). Clamp the whole family to WARNING so secrets don't leak on
+    # happy-path traffic. Debugging network issues? Temporarily set
+    # ARCHIVE_AGENT_LOG_LEVEL=DEBUG — DEBUG lets these through.
+    if stdlib_level > logging.DEBUG:
+        for noisy in ("httpx", "httpcore", "openai"):
+            logging.getLogger(noisy).setLevel(logging.WARNING)
 
     processors: list[structlog.typing.Processor] = [
         structlog.contextvars.merge_contextvars,

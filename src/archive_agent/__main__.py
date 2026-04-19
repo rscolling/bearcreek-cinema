@@ -472,6 +472,39 @@ def llm_calls_stats(
         )
 
 
+# --- metadata ---
+metadata_app = typer.Typer(no_args_is_help=True, help="TMDb metadata enrichment.")
+app.add_typer(metadata_app, name="metadata")
+
+
+@metadata_app.command("enrich")
+def metadata_enrich(
+    limit: int = typer.Option(50, "--limit", "-l", help="Max candidates to enrich"),
+) -> None:
+    """Fill missing genres / runtime / poster / description from TMDb."""
+    import asyncio
+
+    from archive_agent.config import ConfigError, load_config
+    from archive_agent.metadata import TmdbClient, enrich_new_candidates
+    from archive_agent.state.db import get_db, init_db
+
+    try:
+        cfg = load_config()
+    except ConfigError as exc:
+        typer.echo(f"ERROR: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+
+    init_db(cfg.paths.state_db)
+    conn = get_db()
+
+    async def _run() -> object:
+        async with TmdbClient(cfg.tmdb.api_key, conn) as client:
+            return await enrich_new_candidates(conn, client, limit=limit)
+
+    result = asyncio.run(_run())
+    typer.echo(result.model_dump_json(indent=2))  # type: ignore[attr-defined]
+
+
 # --- state ---
 state_app = typer.Typer(no_args_is_help=True, help="State DB management.")
 app.add_typer(state_app, name="state")
