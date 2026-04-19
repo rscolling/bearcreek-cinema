@@ -8,7 +8,7 @@ parallelizable (noted in the card).
 
 ## Phase 1: Plumbing
 
-- [ ] `phase1-01-scaffold.md` — project skeleton + CLI stubs
+- [x] `phase1-01-scaffold.md` — project skeleton + CLI stubs
 - [ ] `phase1-02-config.md` — typed TOML config + env interpolation
 - [ ] `phase1-03-state-schema.md` — SQLite schema + migrations
 - [ ] `phase1-04-jellyfin-client.md` — REST client + history ingestion

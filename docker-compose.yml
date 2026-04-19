@@ -1,0 +1,39 @@
+# Production compose for don-quixote.
+#
+# Joins the pre-existing `jellyfin_default` and `ollama_default` networks as
+# external; the agent reaches Jellyfin at http://jellyfin:8096 and Ollama at
+# http://ollama:11434 via their Docker aliases.
+#
+# While the agent is scaffold-only (every subcommand exits 1), the service
+# runs `--help` and exits. Once real commands land, change `command:` to
+# `["daemon"]` and add `restart: unless-stopped`.
+
+services:
+  archive-agent:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      args:
+        AGENT_UID: "1000"
+        AGENT_GID: "1000"
+    image: archive-agent:latest
+    container_name: archive-agent
+    env_file:
+      - .env
+    volumes:
+      - /media:/media:rw
+      - ./config.toml:/etc/archive-agent/config.toml:ro
+      - archive_agent_state:/var/lib/archive-agent
+    networks:
+      - jellyfin_default
+      - ollama_default
+    command: ["--help"]
+
+volumes:
+  archive_agent_state:
+
+networks:
+  jellyfin_default:
+    external: true
+  ollama_default:
+    external: true

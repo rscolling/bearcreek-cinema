@@ -1,0 +1,59 @@
+# Keep the image small and reproducible. The container runs the agent;
+# tests, docs, and dev tooling live only on the blueridge laptop.
+
+.git/
+.github/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Build outputs
+build/
+dist/
+*.egg-info/
+
+# Repo docs and ops (not needed at runtime)
+docs/
+portfolio/
+claude-code-pack/
+SESSION.md
+CHANGELOG.md
+CONTRIBUTING.md
+CODE_OF_CONDUCT.md
+SECURITY.md
+INVENTORY.md
+CLAUDE.md
+
+# Tests are run on the dev laptop, not inside the prod image
+tests/
+
+# Dev fixtures
+dev-media/
+dev-state/
+
+# Secrets and local env — loaded via env_file at runtime, not baked in
+.env
+.env.*
+config.toml
+
+# Editor cruft
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Local logs and DBs
+*.log
+*.db
+*.db-journal

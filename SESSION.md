@@ -1,6 +1,6 @@
 # SESSION
 
-**Last updated:** 2026-04-18 by deployment-topology session (Docker decision locked in; ENVIRONMENT.md + phase1-01 revised; phase1-07 Ollama card added)
+**Last updated:** 2026-04-18 by phase1-01 scaffold session (Python package + CLI stubs + Dockerfile + compose — all validations green)
 
 Cross-session continuity for Claude Code working on Bear Creek Cinema.
 Read at the start of every session. Updated at the end of every session.
@@ -15,22 +15,22 @@ progress goes to the checklist in `claude-code-pack/TASKS/README.md`.
 
 ## Current status
 
-**Phase:** Design complete. No code written yet.
+**Phase:** Phase 1 in progress. Scaffold landed.
 
-**Active task:** None. Two cards ready; `phase1-07-ollama-stack.md`
-should run **before** `phase1-01-scaffold.md` so the scaffold's
-container build has a real Ollama endpoint to point at. (They're
-independent for *completion*, but running 07 first means `health all`
-works on the first try.)
+**Active task:** None. `phase1-01-scaffold` is done (commits follow
+this SESSION update). Next cards: `phase1-07-ollama-stack` (stand up
+Ollama on don-quixote) and `phase1-02-config` (parallel — either
+ordering works).
 
-**Codebase state:** Git initialized on `main`; baseline commit `5be4e03`
-captures the design-complete, pre-code state (43 files). No `src/`,
-`tests/`, `pyproject.toml`, or `config.example.toml` yet. A fresh
-`bash claude-code-pack/scripts/bootstrap-dev.sh` would fail on the
-`pip install -e .` step because there's no `pyproject.toml` yet —
-this is expected and is the first deliverable of `phase1-01`.
-A root `CLAUDE.md` was added as a concise pointer into
-`claude-code-pack/`.
+**Codebase state:** Python package live at `src/archive_agent/` with
+stub CLI (10 command groups, all exit 1), `tests/` scaffold with two
+smoke tests, `docker/Dockerfile` + `docker-compose.yml` + `.dockerignore`
+for the prod target. `pyproject.toml` declares deps + mypy-strict +
+ruff. Pre-commit config covers ruff/ruff-format/mypy/pytest-unit.
+`.venv/` on blueridge has the package installed editable with dev
+extras. Scaffold image built successfully on don-quixote (`docker
+build` + `docker compose config` both validated in a scratch dir,
+then cleaned up).
 
 **Ollama status:** Not yet installed on `don-quixote`. Installation and
 `qwen2.5:7b` pull are prerequisites for `phase1-05`; documented in
@@ -55,6 +55,35 @@ history. API key not yet provisioned for the agent's use.
 ## Recent sessions
 
 *Most recent first. Prune entries older than the last 5 retained.*
+
+### 2026-04-18 — phase1-01: scaffold landed
+
+- Wrote `pyproject.toml` (deps + mypy-strict + ruff + pytest config +
+  `archive-agent` console script)
+- Built the `src/archive_agent/` package tree with Typer CLI stubs for
+  all 10 command groups (config, history, discover, download,
+  recommend, profile, librarian, serve, daemon, health). Every stub
+  prints `not yet implemented` and exits 1
+- Added `tests/` with `conftest.py` and two scaffold tests
+  (package version, app importable)
+- Added `docker/Dockerfile` (python:3.12-slim, non-root UID 1000
+  matching `blueridge`), `docker-compose.yml` (joins external
+  `jellyfin_default` + `ollama_default`; named volume for state),
+  `.dockerignore`
+- Added `config.example.toml` per CONTRACTS.md §5
+- Added `.pre-commit-config.yaml` with ruff/ruff-format/mypy/pytest-unit
+- Validations all green on blueridge: `pytest tests/` (2 pass),
+  `mypy --strict src/archive_agent` (clean on 12 files),
+  `ruff check` + `ruff format --check` (clean),
+  `archive-agent --help` (exit 0), stub subcommand (exit 1),
+  `pre-commit run --all-files` (all four hooks pass with venv on PATH)
+- On don-quixote: tarball'd source, `docker build` succeeded, `docker
+  compose config` validated, container ran `archive-agent --help`
+  cleanly; cleaned up scratch image
+- Pre-existing drift fixed mid-task: stripped a non-ASCII em-dash and
+  arrow from the Typer root help string (Windows cp1252 console
+  couldn't encode them)
+- Ticked `phase1-01-scaffold.md` in `TASKS/README.md`
 
 ### 2026-04-18 — Deployment topology locked in; docs revised
 
@@ -119,19 +148,6 @@ history. API key not yet provisioned for the agent's use.
   resume, LinkedIn, and Agentic Agent landing page
 - Outcome: portfolio story lands both vector-DB and no-vector-DB
   signals honestly
-
-### 2026-04-18 — Design round: search and retrieval subsystem
-
-- Created `docs/search-and-retrieval.md` covering catalog / intent /
-  recommendation jobs as three distinct retrieval problems
-- Added task cards: `phase3-09-fts5-indexing`, `phase4-08-query-router`,
-  `phase5-07-roku-voice-search`
-- Added ADR-012 ("SQLite FTS5 + in-memory TF-IDF, no vector DB") to
-  `DECISIONS.md`
-- Updated `CONTRACTS.md` with new search endpoints and
-  `SearchResultItem` model
-- Outcome: search subsystem specified, three task cards ready for
-  Claude Code
 
 ---
 

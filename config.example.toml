@@ -1,0 +1,71 @@
+# archive-agent configuration (TOML).
+#
+# Copy to config.toml and edit for your environment. On don-quixote the
+# file is bind-mounted into the container at /etc/archive-agent/config.toml.
+# Values wrapped in ${...} are substituted from environment variables
+# (loaded from .env in dev, or Docker env_file in prod).
+
+[paths]
+state_db = "/var/lib/archive-agent/state.db"
+media_movies = "/media/movies"
+media_tv = "/media/tv"
+media_recommendations = "/media/recommendations"
+media_tv_sampler = "/media/tv-sampler"
+
+[jellyfin]
+# In prod (container on don-quixote), reach the Jellyfin container via its
+# Docker alias on the jellyfin_default network:
+url = "http://jellyfin:8096"
+# For dev from blueridge over Tailscale, override with:
+#   url = "http://don-quixote.tailnet.ts.net:8096"
+api_key = "${JELLYFIN_API_KEY}"
+user_id = ""   # the shared household Jellyfin user id
+
+[archive]
+discovery_interval_minutes = 60
+min_download_count = 100
+year_from = 1920
+year_to = 2000
+
+[tmdb]
+api_key = "${TMDB_API_KEY}"
+
+[llm.workflows]
+nightly_ranking = "ollama"
+profile_update = "ollama"
+nl_search = "ollama"
+
+[llm.ollama]
+# In prod, reach the ollama container at its Docker alias on ollama_default:
+host = "http://ollama:11434"
+# Dev from blueridge:
+#   host = "http://don-quixote.tailnet.ts.net:11434"
+model = "qwen2.5:7b"
+small_model = "llama3.2:3b"
+timeout_seconds = 180
+max_retries = 2
+
+[llm.claude]
+api_key = "${ANTHROPIC_API_KEY}"
+model = "claude-sonnet-4-6"
+small_model = "claude-haiku-4-5"
+
+[librarian]
+max_disk_gb = 500
+recommendations_ttl_days = 14
+tv_sampler_ttl_days = 30
+max_concurrent_downloads = 2
+max_bytes_in_flight_gb = 20
+
+[librarian.tv]
+sampler_episode_count = 3
+promote_after_n_finished = 2
+promote_window_days = 14
+
+[api]
+host = "0.0.0.0"
+port = 8787
+
+[logging]
+level = "INFO"
+format = "json"
