@@ -31,7 +31,7 @@ history is ingested into state DB; Ollama round-trip works.
   with fallback to `internetarchive`
 - [x] `phase2-05-librarian-core.md` — zone management, budget tracking
 - [x] `phase2-06-librarian-placement.md` — `place()` + file move logic
-- [ ] `phase2-07-librarian-eviction.md` — eviction policies
+- [x] `phase2-07-librarian-eviction.md` — eviction policies
 - [ ] `phase2-08-librarian-tv-sampler.md` — sampler-first TV policy
 - [ ] `phase2-09-jellyfin-placement.md` — file naming + library scan
   triggering

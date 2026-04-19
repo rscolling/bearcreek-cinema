@@ -8,6 +8,14 @@ request actions — they never ``shutil.move`` on their own.
 
 from archive_agent.librarian.audit import LibrarianAction, log_action
 from archive_agent.librarian.budget import BudgetReport, ZoneUsage, budget_report, scan_zone
+from archive_agent.librarian.eviction import (
+    EvictionItem,
+    EvictionPlan,
+    EvictionResult,
+    execute_eviction,
+    plan_eviction,
+    propose_committed_tv_eviction,
+)
 from archive_agent.librarian.placement import (
     BudgetExceededError,
     PlacementError,
@@ -23,16 +31,22 @@ __all__ = [
     "USER_OWNED",
     "BudgetExceededError",
     "BudgetReport",
+    "EvictionItem",
+    "EvictionPlan",
+    "EvictionResult",
     "LibrarianAction",
     "PlaceResult",
     "PlacementError",
     "Zone",
     "ZoneUsage",
     "budget_report",
+    "execute_eviction",
     "log_action",
     "place",
+    "plan_eviction",
     "promote_movie",
     "promote_show",
+    "propose_committed_tv_eviction",
     "scan_zone",
     "zone_path",
 ]

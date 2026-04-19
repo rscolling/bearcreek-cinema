@@ -354,10 +354,37 @@ def librarian_status() -> None:
 
 @librarian_app.command("evict")
 def librarian_evict(
-    dry_run: bool = typer.Option(False, "--dry-run"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Print plan without deleting"),
 ) -> None:
-    """Apply eviction policies to bring usage under budget."""
-    _not_implemented("librarian evict")
+    """Plan + execute eviction against agent-managed zones.
+
+    Walks /media/recommendations + /media/tv-sampler, picks oldest-stale
+    items past their TTL, stops when cumulative free meets the overage.
+    Without --dry-run the deletions also run.
+    """
+    from archive_agent.config import ConfigError, load_config
+    from archive_agent.librarian import execute_eviction, plan_eviction
+    from archive_agent.state.db import get_db, init_db
+
+    try:
+        cfg = load_config()
+    except ConfigError as exc:
+        typer.echo(f"ERROR: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+
+    init_db(cfg.paths.state_db)
+    conn = get_db()
+    plan = plan_eviction(conn, cfg)
+    typer.echo(plan.model_dump_json(indent=2))
+
+    if dry_run:
+        return
+
+    result = execute_eviction(plan, conn)
+    typer.echo("---")
+    typer.echo(result.model_dump_json(indent=2))
+    if plan.still_over_budget:
+        raise typer.Exit(code=2)
 
 
 @librarian_app.command("place")
