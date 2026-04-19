@@ -26,44 +26,60 @@ If bootstrap fails, fix the bootstrap rather than working around it.
 
 ## Target: don-quixote (Ubuntu)
 
-Deployment host. Runs:
+Production deployment host — Ubuntu (kernel 6.8), Docker 29.2.1. Already
+runs ~28 containers (Jellyfin, nginx-proxy-manager, Portainer, the ATG
+agent constellation, chromadb, langfuse, ntfy, and others). The
+archive-agent and Ollama each run as their own Docker stack alongside
+those, following the `/home/blueridge/<stack>/docker-compose.yml`
+convention used by most of the other stacks on the box.
 
-- Jellyfin (already installed, port 8096)
-- Ollama (install below)
-- The archive-agent daemon
-- The archive-agent HTTP API
-- Ideally, nothing else compute-heavy
+**Login:** `ssh blueridge@192.168.1.228` (LAN) or `ssh blueridge@don-quixote`
+(Tailscale MagicDNS). The Linux user is `blueridge` — earlier drafts of
+this file named a `rob` user; that's incorrect.
 
-**Directory conventions:**
+**Hardware (verified 2026-04-18):** 31 GB RAM, 4 GB swap, 914 GB root FS
+(~821 GB free), Intel HD Graphics 530 only. **No discrete GPU — Ollama
+runs CPU-only.** 7B Q4 models are comfortable (~3-8 tok/s); 14B is
+possible but slow.
 
-```
-/var/lib/archive-agent/        # state DB, logs
-/etc/archive-agent/            # config.toml (production)
-/opt/archive-agent/            # venv + source (or wherever you install)
-/media/movies/                 # user-owned, never auto-evicted
-/media/tv/                     # committed TV shows
-/media/recommendations/        # agent-managed, evictable
-/media/tv-sampler/             # agent-managed, evictable
-```
+**Host paths (bind-mount sources on the host):**
 
-**User:** create a `rob` service user (already exists). Agent runs as
-that user via systemd `--user` service.
-
-**Ollama install (Ubuntu):**
-
-```bash
-curl -fsSL https://ollama.com/install.sh | sh
-ollama pull qwen2.5:7b
-ollama pull llama3.2:3b
-systemctl --user enable ollama
-systemctl --user start ollama
+```text
+/media/movies/                   # user-owned, never auto-evicted
+/media/tv/                       # committed TV shows
+/media/recommendations/          # agent-managed, evictable
+/media/tv-sampler/               # agent-managed, evictable
+/home/blueridge/archive-agent/   # the agent's stack dir + its config.toml
+/home/blueridge/ollama/          # the ollama stack dir
 ```
 
-Verify:
-```bash
-curl http://localhost:11434/api/tags
-ollama run qwen2.5:7b "Return the JSON {\"ok\": true}" --format json
+**Container paths (what the code inside the agent container sees):**
+
+```text
+/media/{movies,tv,recommendations,tv-sampler}   # bind-mounted rw
+/etc/archive-agent/config.toml                  # bind from stack dir
+/var/lib/archive-agent/                         # state DB + logs (named volume)
 ```
+
+**Jellyfin mount reality (pre-existing, do not modify):** `/media` on the
+host is bind-mounted into the Jellyfin container as **read-only**.
+Jellyfin only needs to read the library; the agent writes to the same
+host path with rw. "Real files Jellyfin scans" works as designed — no
+changes to Jellyfin's compose, which is a Portainer stack at
+`/data/compose/4/docker-compose.yml`.
+
+**Networking:** the agent's compose joins two pre-existing Docker
+networks as `external: true`:
+
+- `jellyfin_default` — reach Jellyfin at `http://jellyfin:8096`
+- `ollama_default` — reach Ollama at `http://ollama:11434`
+
+Use container aliases, never `localhost`, from inside the agent
+container. The name `agent-net` is **already taken** by the ATG stack —
+don't reuse it if the agent ever needs its own internal network.
+
+**Ollama standup:** see `TASKS/phase1-07-ollama-stack.md`. Summary:
+`cd /home/blueridge/ollama && docker compose up -d && docker exec ollama ollama pull qwen2.5:7b`.
 
 ---
 
@@ -115,28 +131,38 @@ Commits are blocked if any fail.
 
 ---
 
-## Systemd units (production on don-quixote)
+## Docker stack (production on don-quixote)
 
-Two units, both `--user`:
+The agent and Ollama are separate stacks, each at
+`/home/blueridge/<stack>/docker-compose.yml`. The agent compose declares
+**one** service that runs both the async daemon loop and the FastAPI
+HTTP surface in the same process (they share state and config; splitting
+them into two containers adds coordination cost for no real isolation
+gain). Jellyfin is untouched — it stays a Portainer stack at
+`/data/compose/4/`.
 
-- `archive-agent-daemon.service` — the main async loop
-- `archive-agent-api.service` — FastAPI HTTP service
-
-Templates in `systemd/` directory. Install with:
+Deploy:
 
 ```bash
-mkdir -p ~/.config/systemd/user
-cp systemd/*.service ~/.config/systemd/user/
-systemctl --user daemon-reload
-systemctl --user enable archive-agent-daemon archive-agent-api
-systemctl --user start archive-agent-daemon archive-agent-api
+# Ollama first — the agent's health check depends on it
+cd /home/blueridge/ollama && docker compose up -d
+docker exec ollama ollama pull qwen2.5:7b
+docker exec ollama ollama pull llama3.2:3b
+
+# Agent
+cd /home/blueridge/archive-agent && docker compose up -d
+docker compose logs -f archive-agent
 ```
 
-Logs:
+Restart just the agent (Ollama keeps running; models stay in RAM):
+
 ```bash
-journalctl --user -u archive-agent-daemon -f
-journalctl --user -u archive-agent-api -f
+cd /home/blueridge/archive-agent && docker compose restart archive-agent
 ```
+
+Logs go to Docker's json-file driver by default; tail with
+`docker compose logs -f archive-agent`. If log volume becomes a problem,
+switch to `local` driver with rotation in the compose file.
 
 ---
 
@@ -162,29 +188,31 @@ ARCHIVE_AGENT_LOG_LEVEL=DEBUG
 
 ## Verifying setup
 
-Run in order; each should succeed before moving on:
+### On don-quixote (prod, inside the container)
 
 ```bash
-# 1. Python env
-python --version   # should be 3.11+
-which python       # should be inside .venv/
+# Stacks up and healthy
+docker compose ps                       # run from /home/blueridge/archive-agent
+docker network ls | grep -E "jellyfin_default|ollama_default"
 
-# 2. Dependencies
+# Exec into the agent container for CLI smoke tests
+docker compose exec archive-agent archive-agent config validate
+docker compose exec archive-agent archive-agent state init --dry-run
+docker compose exec archive-agent archive-agent health ollama
+docker compose exec archive-agent archive-agent health jellyfin
+docker compose exec archive-agent archive-agent health all
+```
+
+### On blueridge (dev laptop, local venv)
+
+Useful for iterative development without a rebuild cycle. Set
+`JELLYFIN_URL=http://don-quixote.tailnet.ts.net:8096` and
+`OLLAMA_HOST=http://don-quixote.tailnet.ts.net:11434` in `.env`, then:
+
+```bash
+python --version           # 3.11+
 pip list | grep -E "fastapi|pydantic|instructor|httpx"
-
-# 3. Config parses
 archive-agent config validate
-
-# 4. State DB initializes
-archive-agent state init --dry-run
-
-# 5. Ollama reachable
-archive-agent health ollama
-
-# 6. Jellyfin reachable
-archive-agent health jellyfin
-
-# 7. Everything
 archive-agent health all
 ```
 

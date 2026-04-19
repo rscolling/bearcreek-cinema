@@ -15,6 +15,8 @@ parallelizable (noted in the card).
 - [ ] `phase1-05-ollama-smoke.md` — Ollama + LLMProvider skeleton
 - [ ] `phase1-06-logging-observability.md` — structlog config, redaction,
   llm_calls persistence wiring
+- [ ] `phase1-07-ollama-stack.md` — Ollama Docker stack on don-quixote
+  (prerequisite for phase1-05 — run it first)
 
 **Phase 1 done when:** `archive-agent health all` reports green; watch
 history is ingested into state DB; Ollama round-trip works.

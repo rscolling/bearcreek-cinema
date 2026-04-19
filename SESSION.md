@@ -1,6 +1,6 @@
 # SESSION
 
-**Last updated:** 2026-04-18 by repo-bootstrap session (git init, drift reconciliation, root CLAUDE.md)
+**Last updated:** 2026-04-18 by deployment-topology session (Docker decision locked in; ENVIRONMENT.md + phase1-01 revised; phase1-07 Ollama card added)
 
 Cross-session continuity for Claude Code working on Bear Creek Cinema.
 Read at the start of every session. Updated at the end of every session.
@@ -17,8 +17,11 @@ progress goes to the checklist in `claude-code-pack/TASKS/README.md`.
 
 **Phase:** Design complete. No code written yet.
 
-**Active task:** None. Ready to start `phase1-01-scaffold.md` when a
-coding session opens.
+**Active task:** None. Two cards ready; `phase1-07-ollama-stack.md`
+should run **before** `phase1-01-scaffold.md` so the scaffold's
+container build has a real Ollama endpoint to point at. (They're
+independent for *completion*, but running 07 first means `health all`
+works on the first try.)
 
 **Codebase state:** Git initialized on `main`; baseline commit `5be4e03`
 captures the design-complete, pre-code state (43 files). No `src/`,
@@ -44,15 +47,41 @@ history. API key not yet provisioned for the agent's use.
   them into `.env` once the scaffold lands
 - **User decision:** final repo name for the sibling RAG project
   (`claude-docs-rag` is the working name, alternatives discussed)
-- **Hardware check:** `free -h`, `lspci | grep -i vga`, `df -h` output
-  from `don-quixote` not yet captured — needed before finalizing
-  Ollama model choice for `phase1-05`
+- **`.gitattributes`** not yet added — CRLF/LF policy should be set
+  before Python/BrightScript files land in phase1-01
 
 ---
 
 ## Recent sessions
 
 *Most recent first. Prune entries older than the last 5 retained.*
+
+### 2026-04-18 — Deployment topology locked in; docs revised
+
+- User decision: archive-agent runs in its own Docker container on
+  don-quixote; Ollama runs in its own Docker stack (separate from the
+  agent) at `/home/blueridge/ollama/`
+- SSH'd into don-quixote (`ssh blueridge@192.168.1.228` — user is
+  `blueridge`, not `rob` as `ENVIRONMENT.md` had said). Captured:
+  Jellyfin is a Portainer stack with `/media` mounted **ro** into the
+  container on `jellyfin_default` network; 31 GB RAM, 821 GB free,
+  Intel HD Graphics 530 only (CPU-only Ollama); Ollama not yet
+  installed; 28 containers already on the box
+- Saved deployment facts to project memory
+  (`memory/deployment_topology.md`)
+- Revised `ENVIRONMENT.md`: replaced the don-quixote target section
+  (host paths vs. container paths, user fix, hardware facts, network
+  joins), swapped systemd unit section for a Docker stack section,
+  revised "Verifying setup" to exec through `docker compose`
+- Updated `phase1-01-scaffold.md`: added Deliverable 6 (Dockerfile,
+  docker-compose.yml, .dockerignore) and matching done-when + out-of-scope
+- Added new `phase1-07-ollama-stack.md` for standing up the Ollama
+  compose + pulling `qwen2.5:7b` and `llama3.2:3b`; registered in
+  `TASKS/README.md`. Note: phase1-07 should precede phase1-05 despite
+  the number
+- Outcome: the Docker deployment shape is now concrete enough that
+  `phase1-07` followed by `phase1-01` is a clean forward path. Hardware
+  blocker closed. Open: API keys, sibling repo name, `.gitattributes`
 
 ### 2026-04-18 — Repo bootstrap: git init + drift reconciliation
 
@@ -103,16 +132,6 @@ history. API key not yet provisioned for the agent's use.
   `SearchResultItem` model
 - Outcome: search subsystem specified, three task cards ready for
   Claude Code
-
-### 2026-04-18 — Repo initialization
-
-- Created Bear Creek Cinema repo structure with README, LICENSE,
-  CONTRIBUTING, CODE_OF_CONDUCT, SECURITY, CHANGELOG
-- Migrated `claude-code-pack/` from earlier `archive-agent/` working
-  location
-- Added GitHub templates (bug report, proposal, PR) and CI workflow
-- Outcome: public-ready repo skeleton; still needs `pyproject.toml`
-  and `src/` when `phase1-01` runs
 
 ---
 

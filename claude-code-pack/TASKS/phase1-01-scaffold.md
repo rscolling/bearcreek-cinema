@@ -68,6 +68,23 @@ Set up the project skeleton with all directories, tooling, and a working
    placeholders for: `config`, `history`, `discover`, `download`,
    `recommend`, `profile`, `librarian`, `serve`, `daemon`, `health`.
 
+6. Docker artifacts (prod deployment target is a container on
+   don-quixote — see `ENVIRONMENT.md`):
+   - `docker/Dockerfile` — Python 3.12-slim base, installs the package
+     via `pip install -e .`, non-root user `agent` with UID matching
+     the `blueridge` host user (for bind-mount write permissions on
+     `/media/*`), entrypoint `archive-agent`
+   - `docker-compose.yml` at repo root with one service `archive-agent`:
+     builds from `docker/Dockerfile`; bind-mounts `/media` (rw) and
+     `./config.toml` → `/etc/archive-agent/config.toml` (ro); named
+     volume `archive_agent_state` → `/var/lib/archive-agent/`; joins
+     `jellyfin_default` and `ollama_default` as `external: true`;
+     reads env from `.env`
+   - `.dockerignore` covering `.venv/`, `.git/`, `__pycache__/`,
+     `tests/`, `dev-media/`, editor cruft
+   - These are the prod artifacts; dev on blueridge can still use
+     `pip install -e .` in a venv without touching Docker
+
 ## Done when
 
 - [ ] `pip install -e .` succeeds in a fresh venv
@@ -79,6 +96,10 @@ Set up the project skeleton with all directories, tooling, and a working
 - [ ] `mypy --strict src/archive_agent` passes
 - [ ] `ruff check src/ tests/` passes
 - [ ] `pre-commit run --all-files` passes
+- [ ] `docker build -f docker/Dockerfile -t archive-agent:dev .` succeeds
+- [ ] `docker compose config` validates (external networks may show as
+  a warning on blueridge where they don't exist — that's fine, they
+  exist on don-quixote)
 - [ ] `SESSION.md` updated: current status reflects "scaffold complete,
   ready for phase1-02"; new Recent Sessions entry added with outcome
 
@@ -99,6 +120,9 @@ pre-commit run --all-files
 - Any real command implementations (stubs only)
 - Config loading (that's phase1-02)
 - Database (phase1-03)
+- Standing up the Ollama stack on don-quixote (phase1-07)
+- Pushing the image to a registry or deploying to don-quixote — the
+  Docker artifacts only need to *build and validate* in this card
 
 ## Estimated effort
 
