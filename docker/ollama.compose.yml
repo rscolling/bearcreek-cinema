@@ -1,0 +1,33 @@
+# Reference mirror of the Ollama compose deployed on don-quixote.
+# Canonical live copy: /home/blueridge/ollama/docker-compose.yml on the server.
+# If you change this in the repo, sync it to the server and run `docker
+# compose up -d` there. Deployed via phase1-07-ollama-stack on 2026-04-19.
+#
+# Ollama LLM server stack on don-quixote. Own stack so the archive-agent can
+# join ollama_default as an external network (see the agent's docker-compose.yml
+# at the repo root). CPU-only — the host has Intel HD Graphics only (verified
+# 2026-04-18). Published on the host port so dev from blueridge over Tailscale
+# can reach it at http://don-quixote:11434.
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+    environment:
+      # Keep models warm in RAM for an hour after last use; reduces first-token
+      # latency for the NL search path (phase4-08). Tune if RAM pressure emerges.
+      OLLAMA_KEEP_ALIVE: "1h"
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  ollama_models:

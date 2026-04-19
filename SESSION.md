@@ -1,6 +1,6 @@
 # SESSION
 
-**Last updated:** 2026-04-18 by phase1-01 scaffold session (Python package + CLI stubs + Dockerfile + compose — all validations green)
+**Last updated:** 2026-04-19 by phase1-07 Ollama stack session (stack deployed on don-quixote, qwen2.5:7b + llama3.2:3b pulled, round-trip confirmed)
 
 Cross-session continuity for Claude Code working on Bear Creek Cinema.
 Read at the start of every session. Updated at the end of every session.
@@ -15,46 +15,83 @@ progress goes to the checklist in `claude-code-pack/TASKS/README.md`.
 
 ## Current status
 
-**Phase:** Phase 1 in progress. Scaffold landed.
+**Phase:** Phase 1 in progress. Scaffold + Ollama stack landed.
 
-**Active task:** None. `phase1-01-scaffold` is done (commits follow
-this SESSION update). Next cards: `phase1-07-ollama-stack` (stand up
-Ollama on don-quixote) and `phase1-02-config` (parallel — either
-ordering works).
+**Active task:** None. Next card: `phase1-02-config` (typed TOML
+loading — prerequisite for the remaining phase1 cards). `phase1-06`
+(logging/observability) can also run any time.
 
 **Codebase state:** Python package live at `src/archive_agent/` with
 stub CLI (10 command groups, all exit 1), `tests/` scaffold with two
 smoke tests, `docker/Dockerfile` + `docker-compose.yml` + `.dockerignore`
-for the prod target. `pyproject.toml` declares deps + mypy-strict +
-ruff. Pre-commit config covers ruff/ruff-format/mypy/pytest-unit.
-`.venv/` on blueridge has the package installed editable with dev
-extras. Scaffold image built successfully on don-quixote (`docker
-build` + `docker compose config` both validated in a scratch dir,
-then cleaned up).
+for the prod target, plus `docker/ollama.compose.yml` as a reference
+mirror of the Ollama stack deployed on don-quixote. `pyproject.toml`
+declares deps + mypy-strict + ruff. Pre-commit covers
+ruff/ruff-format/mypy/pytest-unit. `.venv/` on blueridge has the
+package installed editable with dev extras.
 
-**Ollama status:** Not yet installed on `don-quixote`. Installation and
-`qwen2.5:7b` pull are prerequisites for `phase1-05`; documented in
-`claude-code-pack/ENVIRONMENT.md`.
+**Deployed infra on don-quixote:**
 
-**Jellyfin status:** Running on `don-quixote` with existing watch
-history. API key not yet provisioned for the agent's use.
+- `/home/blueridge/ollama/` — `ollama` container running
+  `ollama/ollama:latest`, healthy, published on `:11434`, with
+  `qwen2.5:7b` (4.7 GB) and `llama3.2:3b` (2.0 GB) pre-pulled into
+  the `ollama_ollama_models` named volume. `OLLAMA_KEEP_ALIVE=1h`.
+- `ollama_default` Docker network exists; archive-agent compose will
+  join it as `external: true` when deployed.
+- First `qwen2.5:7b` prompt took ~3s eval / ~11s total incl. cold load.
+- Agent compose not yet deployed (phase1-02+ needed first).
+
+**Credentials (`.env` on blueridge, gitignored):**
+
+- `TMDB_API_KEY` — validated (HTTP 200 on `/3/configuration`).
+- `JELLYFIN_API_KEY` + `JELLYFIN_USER_ID` — validated (HTTP 200 on
+  `/Users/{uid}`; user `colling`, admin, GUID `7dc32a...6214`). Note:
+  Jellyfin is on 10.11.8 (newer than the 10.9.8 mentioned in docs).
+  Library has 261 movies/episodes but essentially zero playback
+  history — `phase3-04` bootstrap will produce a generic profile
+  until real plays accumulate.
+- `ANTHROPIC_API_KEY` — not set; only needed if ClaudeProvider is
+  enabled for a workflow.
 
 ---
 
 ## Blockers / waiting on
 
-- **User task:** provision a Jellyfin API key and TMDb API key, fill
-  them into `.env` once the scaffold lands
 - **User decision:** final repo name for the sibling RAG project
   (`claude-docs-rag` is the working name, alternatives discussed)
-- **`.gitattributes`** not yet added — CRLF/LF policy should be set
-  before Python/BrightScript files land in phase1-01
+- **Watch-history cold start:** household hasn't accumulated playback
+  on this Jellyfin instance yet. Not a blocker for phase1/2/3 code,
+  but `phase3-04` profile bootstrap will be thin until real plays
+  arrive; may need a manual-seed flow.
 
 ---
 
 ## Recent sessions
 
 *Most recent first. Prune entries older than the last 5 retained.*
+
+### 2026-04-19 — phase1-07: Ollama stack live on don-quixote + credentials validated
+
+- Wrote `/home/blueridge/ollama/docker-compose.yml` on the server:
+  `ollama/ollama:latest`, CPU-only, named volume for `/root/.ollama`,
+  published on `:11434`, `OLLAMA_KEEP_ALIVE=1h`, `ollama list`
+  healthcheck. Mirrored into the repo as `docker/ollama.compose.yml`
+- `docker compose up -d` succeeded; `ollama_default` network auto-created
+- Pulled both models in the background via `nohup`: `llama3.2:3b`
+  (31 s) then `qwen2.5:7b` (70 s). Total ~100 s — fast home fiber
+- Verified reachability from laptop over Tailscale at
+  `http://don-quixote:11434/api/tags` — both models listed with
+  full metadata (Q4_K_M GGUF)
+- Round-tripped a structured-JSON prompt on `qwen2.5:7b`:
+  returned `{"ok": true, "model_name": "qwen2.5"}`, eval_ms=3048,
+  total_ms=10904 (includes one-time cold load into RAM)
+- TMDb + Jellyfin credentials validated in the same session:
+  TMDb key returns HTTP 200 on `/3/configuration`; Jellyfin key +
+  user GUID return HTTP 200 on `/Users/{uid}` as `colling`
+  (admin). Library has 261 items but ~0 playback — flagged in
+  blockers for phase3-04 profile bootstrap
+- Ticked `phase1-07` in `TASKS/README.md`; `phase1-02-config` is
+  next in line
 
 ### 2026-04-18 — phase1-01: scaffold landed
 
@@ -137,17 +174,6 @@ history. API key not yet provisioned for the agent's use.
 - Updated `claude-code-pack/CLAUDE.md` to reference SESSION.md in the
   operating model
 - Outcome: SESSION.md seeded, protocol documented, no code changes
-
-### 2026-04-18 — Design round: paired-project portfolio positioning
-
-- Added "When I would have used a vector database" section to
-  `docs/case-study.md`
-- Designed `claude-docs-rag` sibling project (docs/DESIGN.md,
-  README.md)
-- Updated `portfolio/cv-bullets.md` with paired-project framing for
-  resume, LinkedIn, and Agentic Agent landing page
-- Outcome: portfolio story lands both vector-DB and no-vector-DB
-  signals honestly
 
 ---
 
