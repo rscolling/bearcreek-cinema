@@ -8,11 +8,11 @@ parallelizable (noted in the card).
 
 ## Phase 1: Plumbing
 
-- [x] `phase1-01-scaffold.md` — project skeleton + CLI stubs
-- [x] `phase1-02-config.md` — typed TOML config + env interpolation
-- [x] `phase1-03-state-schema.md` — SQLite schema + migrations
-- [x] `phase1-04-jellyfin-client.md` — REST client + history ingestion
-- [x] `phase1-05-ollama-smoke.md` — Ollama + LLMProvider skeleton
+- [ ] `phase1-01-scaffold.md` — project skeleton + CLI stubs
+- [ ] `phase1-02-config.md` — typed TOML config + env interpolation
+- [ ] `phase1-03-state-schema.md` — SQLite schema + migrations
+- [ ] `phase1-04-jellyfin-client.md` — REST client + history ingestion
+- [ ] `phase1-05-ollama-smoke.md` — Ollama + LLMProvider skeleton
 - [ ] `phase1-06-logging-observability.md` — structlog config, redaction,
   llm_calls persistence wiring
 

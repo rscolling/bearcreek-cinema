@@ -1,6 +1,6 @@
 # SESSION
 
-**Last updated:** 2026-04-18 by design session (not a code-writing session)
+**Last updated:** 2026-04-18 by repo-bootstrap session (git init, drift reconciliation, root CLAUDE.md)
 
 Cross-session continuity for Claude Code working on Bear Creek Cinema.
 Read at the start of every session. Updated at the end of every session.
@@ -20,11 +20,14 @@ progress goes to the checklist in `claude-code-pack/TASKS/README.md`.
 **Active task:** None. Ready to start `phase1-01-scaffold.md` when a
 coding session opens.
 
-**Codebase state:** No `src/` yet. Repo contains documentation,
-task cards, design docs, and portfolio materials. A fresh
+**Codebase state:** Git initialized on `main`; baseline commit `5be4e03`
+captures the design-complete, pre-code state (43 files). No `src/`,
+`tests/`, `pyproject.toml`, or `config.example.toml` yet. A fresh
 `bash claude-code-pack/scripts/bootstrap-dev.sh` would fail on the
 `pip install -e .` step because there's no `pyproject.toml` yet —
 this is expected and is the first deliverable of `phase1-01`.
+A root `CLAUDE.md` was added as a concise pointer into
+`claude-code-pack/`.
 
 **Ollama status:** Not yet installed on `don-quixote`. Installation and
 `qwen2.5:7b` pull are prerequisites for `phase1-05`; documented in
@@ -50,6 +53,22 @@ history. API key not yet provisioned for the agent's use.
 ## Recent sessions
 
 *Most recent first. Prune entries older than the last 5 retained.*
+
+### 2026-04-18 — Repo bootstrap: git init + drift reconciliation
+
+- Added root `CLAUDE.md` as a concise entrypoint into
+  `claude-code-pack/` (pointers, current state, commands, module
+  boundaries)
+- `git init -b main`; baseline commit `5be4e03` captures the
+  design-complete, pre-code snapshot (43 files)
+- Reconciled drift: `TASKS/README.md` had `phase1-01`–`05` ticked as
+  done, but no `src/`, `tests/`, or `pyproject.toml` exist on disk.
+  Un-ticked those five boxes to match reality; SESSION.md was right,
+  the checklist was aspirational
+- Outcome: repo is now a real git repo with accurate task-status;
+  `phase1-01-scaffold` is unambiguously the next work to pick up.
+  Open blockers unchanged (API keys, hardware check, sibling repo
+  name, CRLF policy / `.gitattributes` before code lands)
 
 ### 2026-04-18 — Design round: heartbeat / SESSION.md
 
