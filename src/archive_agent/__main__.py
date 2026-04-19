@@ -231,9 +231,51 @@ def discover(
 def download(
     archive_id: str = typer.Argument(..., help="Archive.org item identifier"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Plan only, don't transfer"),
+    dest: str = typer.Option(
+        "/tmp/archive-agent/staging",
+        "--dest",
+        help="Staging directory (files are moved to /media/* by phase2-06)",
+    ),
+    zone: str = typer.Option(
+        "recommendations",
+        "--zone",
+        help="Intended /media zone after placement (movies/tv/recommendations/tv-sampler)",
+    ),
 ) -> None:
-    """Download a single Archive.org item into its appropriate /media zone."""
-    _not_implemented("download")
+    """Download a single Archive.org item into the staging area."""
+    import asyncio
+
+    from archive_agent.archive.downloader import DownloadRequest, download_one
+    from archive_agent.config import ConfigError, load_config
+    from archive_agent.librarian.zones import Zone
+    from archive_agent.state.db import get_db, init_db
+
+    try:
+        cfg = load_config()
+    except ConfigError as exc:
+        typer.echo(f"ERROR: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+
+    try:
+        zone_enum = Zone(zone)
+    except ValueError as exc:
+        typer.echo(f"invalid --zone={zone!r}; expected one of {[z.value for z in Zone]}", err=True)
+        raise typer.Exit(code=1) from exc
+
+    init_db(cfg.paths.state_db)
+    conn = get_db()
+    req = DownloadRequest(
+        archive_id=archive_id,
+        zone=zone_enum,
+        dest_dir=Path(dest),
+        dry_run=dry_run,
+    )
+    result = asyncio.run(
+        download_one(req, conn, max_concurrent=cfg.librarian.max_concurrent_downloads)
+    )
+    typer.echo(result.model_dump_json(indent=2))
+    if result.status == "failed":
+        raise typer.Exit(code=2)
 
 
 # --- recommend ---

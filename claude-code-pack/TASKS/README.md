@@ -27,7 +27,7 @@ history is ingested into state DB; Ollama round-trip works.
   collections
 - [x] `phase2-02-tmdb-enrichment.md` — TMDb lookups with caching
 - [ ] `phase2-03-tv-grouping.md` — episode→show association heuristics
-- [ ] `phase2-04-ia-get-downloader.md` — subprocess wrapper around ia-get
+- [x] `phase2-04-ia-get-downloader.md` — subprocess wrapper around ia-get
   with fallback to `internetarchive`
 - [x] `phase2-05-librarian-core.md` — zone management, budget tracking
 - [ ] `phase2-06-librarian-placement.md` — `place()` + file move logic

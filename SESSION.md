@@ -1,6 +1,6 @@
 # SESSION
 
-**Last updated:** 2026-04-19 by phase2-01 discovery session (Archive.org search + candidates upsert, live 10-item discover works end-to-end)
+**Last updated:** 2026-04-19 by phase2 batch (cards 05, 02, 04 — librarian core, TMDb enrichment, Archive.org downloader — all landed with live verification)
 
 Cross-session continuity for Claude Code working on Bear Creek Cinema.
 Read at the start of every session. Updated at the end of every session.
@@ -19,14 +19,13 @@ progress goes to the checklist in `claude-code-pack/TASKS/README.md`.
 state DB, Jellyfin client, LLMProvider skeleton, and logging +
 observability are all landed.
 
-**Active task:** None. Phase 2 in progress: 1 of 9 cards done
-(phase2-01 discovery). Remaining working order:
+**Active task:** None. Phase 2 in progress: 4 of 9 cards done
+(01 discovery, 02 TMDb enrichment, 04 downloader, 05 librarian core).
+Remaining working order:
 
-- **Next, parallel:** `phase2-05-librarian-core` (foundational),
-  `phase2-02-tmdb-enrichment` (enriches phase2-01's candidates),
-  `phase2-04-ia-get-downloader` (operates on phase2-01's candidates).
-- **Then:** `phase2-03-tv-grouping` (needs 02),
-  `phase2-06-librarian-placement` (needs 04 + 05).
+- **Next:** `phase2-03-tv-grouping` (needs 02),
+  `phase2-06-librarian-placement` (needs 04 + 05) — independent, can
+  run in parallel.
 - **Then:** `phase2-09-jellyfin-placement` (needs 06),
   `phase2-07-librarian-eviction` (needs 05 + 06).
 - **Last:** `phase2-08-librarian-tv-sampler` (needs 04 / 05 / 06 /
@@ -84,6 +83,53 @@ package installed editable with dev extras.
 ## Recent sessions
 
 *Most recent first. Prune entries older than the last 5 retained.*
+
+### 2026-04-19 — phase2 batch (cards 05 → 02 → 04, landed serially)
+
+User asked for parallel execution via worktree-isolated subagents;
+the harness refused (no `WorktreeCreate` hook configured). Fell back
+to sequential in-session execution.
+
+- **phase2-05 librarian-core** (commit `ac2b55b`) — 3 modules + CLI.
+  Zone StrEnum whose values match the on-disk directory names (the
+  `downloads.zone` CHECK constraint depends on this); AGENT_MANAGED
+  / USER_OWNED frozensets so "never auto-evict /media/movies" is a
+  set-membership test (`every_zone_is_categorized` test guards the
+  invariant). `scan_zone` tolerates missing paths and per-file
+  permission errors. `log_action` writes to `librarian_actions` with
+  UTC timestamp. CLI: `archive-agent librarian status` prints the
+  BudgetReport JSON + a one-line human summary tagging
+  `/media/movies` as user-owned. 18 new tests, live-verified on a
+  scratch zone tree
+- **phase2-02 metadata enrichment** (commit `20a28a6`) — TmdbClient
+  (httpx async context manager over the real TMDb v3 API), cache
+  module backed by migration 003's `metadata_cache` table, and
+  `enrich_candidate` / `enrich_new_candidates`. Non-overwrite
+  contract: Archive.org's curated fields win if present. Search
+  includes `primary_release_year` / `first_air_date_year` to
+  disambiguate same-title films across decades. 429 + persistent-5xx
+  handling with exponential backoff. 25 new tests + 2 integration;
+  141 unit total. Live on 5 real candidates: 2 filled (Raiders of
+  Old California, Little Men), 3 TMDb misses; re-run finished in
+  <1 s (cache hits). **Found and fixed a real secret leak**: httpx
+  and httpcore log full request URLs at INFO, which bypass the
+  structlog redactor — TMDb's `?api_key=<key>` showed up in stdout.
+  `configure_logging` now clamps those loggers to WARNING unless
+  the overall level is DEBUG
+- **phase2-04 downloader** (commit `<next>`) — `DownloadRequest` /
+  `DownloadResult` / `download_one`, backend dispatch between
+  `ia-get` (subprocess) and Python `internetarchive` library (always
+  available). `pick_format` walks a preference list (h.264 → MPEG4
+  → Matroska → Ogg Video) and prefers `source=original` over IA
+  re-encodes. Module-level asyncio.Semaphore for concurrency. Row
+  lifecycle: `queued → downloading → done | failed | aborted`;
+  `done` short-circuits on retry, `failed`/`aborted` resets to
+  queued. 14 new tests + 1 integration (159 unit, 9 integration
+  total). Live download of a 3 MB Turner short confirmed; second
+  run correctly reported `status=skipped`. A couple of stubs
+  debugged end-to-end: picked the wrong `File.download` kwarg
+  (`file_path=` is undefined across versions; `destdir=` is the
+  portable one) — test failed, inspected, fixed
 
 ### 2026-04-19 — phase2-01: Archive.org discovery live
 
@@ -226,41 +272,6 @@ package installed editable with dev extras.
   noise that doesn't affect real test outcome)
 - Live `health all` returns clean JSON: ollama ok (5.6 s first-call
   latency incl. cold load), jellyfin 10.11.8, state_db v2, disk 0/500 GB
-
-### 2026-04-19 — phase1-04: async Jellyfin client + history ingestion
-
-- `jellyfin/models.py` — 7 Pydantic response models with `extra='ignore'`
-  so upstream additions don't break us. Aliases keep snake_case in
-  Python, PascalCase on the wire
-- `jellyfin/client.py` — `JellyfinClient` as an async context manager
-  over `httpx.AsyncClient`. `X-Emby-Token` header auth, 30s timeout,
-  paginated item iterator, `ping`, `authenticate`, `get_user`,
-  `list_users`, `list_libraries`, `list_items{,_paginated}`, `get_item`,
-  `get_user_data`, `trigger_library_scan`, `raw_get` escape hatch
-- `jellyfin/history.py` — `MovieWatchRecord` / `EpisodeWatchRecord`
-  intermediate models, `classify_movie_signal` implementing the
-  bootstrap rules (rewatched/finished/bailed/never-played) with
-  `archive_id = "jellyfin:<uuid>"` namespacing, `ingest_all_history`
-  that writes both kinds idempotently
-- Added **migration 002** (`jellyfin_ingest_dedupe`) — unique index on
-  `episode_watches(jellyfin_item_id, timestamp)`. Movie dedupe is
-  query-level on `(archive_id, kind, source=bootstrap)`
-- CLI: `health jellyfin`, `jellyfin users`, `jellyfin libraries`,
-  `history dump [--type movie|show|any] [--since]`, `history sync
-  [--dry-run]` — all live against the server
-- Tests: 14 new (5 model parsing, 9 history incl. classifier + 3
-  idempotence/dry-run round-trips using a fake client over the existing
-  `sample_jellyfin_history.json` fixture). 3 live integration tests
-  under `RUN_INTEGRATION_TESTS=1` exercise ping, libraries, and user
-  resolution. Total suite: 52 unit + 3 integration
-- Live run on blueridge → don-quixote: `health jellyfin` OK on
-  10.11.8; `history sync` ingested 148 movie taste events (all
-  `kind=rejected, strength=0.2` because play_count=0 across the
-  library — SESSION.md blocker about cold-start history still holds);
-  second sync skipped all 148 — idempotency confirmed
-- Added `httpx.*` and `structlog.*` to pyproject `mypy.overrides` so
-  the pre-commit sandbox mypy (which only sees declared
-  additional_dependencies) doesn't trip on untyped-import errors
 
 ---
 
