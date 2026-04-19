@@ -1,6 +1,6 @@
 # SESSION
 
-**Last updated:** 2026-04-19 by phase2 batch (cards 05, 02, 04 — librarian core, TMDb enrichment, Archive.org downloader — all landed with live verification)
+**Last updated:** 2026-04-19 by phase2 cards 03 + 06 (tv-grouping live against real IA data; librarian placement + promotion + Jellyfin-compatible naming)
 
 Cross-session continuity for Claude Code working on Bear Creek Cinema.
 Read at the start of every session. Updated at the end of every session.
@@ -19,17 +19,14 @@ progress goes to the checklist in `claude-code-pack/TASKS/README.md`.
 state DB, Jellyfin client, LLMProvider skeleton, and logging +
 observability are all landed.
 
-**Active task:** None. Phase 2 in progress: 4 of 9 cards done
-(01 discovery, 02 TMDb enrichment, 04 downloader, 05 librarian core).
-Remaining working order:
+**Active task:** None. Phase 2 in progress: **6 of 9 cards done**
+(01 discovery, 02 TMDb enrichment, 03 tv-grouping, 04 downloader,
+05 librarian core, 06 placement). Remaining working order:
 
-- **Next:** `phase2-03-tv-grouping` (needs 02),
-  `phase2-06-librarian-placement` (needs 04 + 05) — independent, can
-  run in parallel.
-- **Then:** `phase2-09-jellyfin-placement` (needs 06),
+- **Next, parallel:** `phase2-09-jellyfin-placement` (needs 06) and
   `phase2-07-librarian-eviction` (needs 05 + 06).
 - **Last:** `phase2-08-librarian-tv-sampler` (needs 04 / 05 / 06 /
-  07 / 09).
+  07 / 09 — the capstone).
 
 Phase 2 done when: `archive-agent download <movie-id>` produces a
 playable file in Jellyfin; librarian enforces budget and evicts
@@ -83,6 +80,40 @@ package installed editable with dev extras.
 ## Recent sessions
 
 *Most recent first. Prune entries older than the last 5 retained.*
+
+### 2026-04-19 — phase2 cards 03 + 06 (tv-grouping, placement)
+
+- **phase2-03 tv-grouping** (commit `cafdb7b`) — four-tier confidence
+  ladder: high (SxEy marker + TMDb match), medium (single TMDb hit
+  without marker), low (multiple TMDb hits — queue for review),
+  none (no TMDb match / title empty after marker strip). Only high
+  and medium write back to the candidate row; low/none land in the
+  new `tv_grouping_review` table (migration 004). Regex covers 10
+  title patterns (S01E03, s1e3, 1x03, Season 1 Episode 3, - Ep 03 -,
+  Episode 3, etc.) — tested via parametrize. Added
+  `TmdbClient.search_shows` (plural) so the grouper can count results
+  for medium-vs-low decisions. Live on real IA data: "Pete Seeger's
+  Rainbow Quest, Episode 14: Political songs" classified to show
+  20720 ("Rainbow Quest") S01E14 confidence=high — full round trip
+  through parse → TMDb → DB writeback. Most 1950s-60s IA TV items
+  don't carry SxEy markers and correctly land in the review queue
+- **phase2-06 librarian-placement** (commit `<next>`) — the ONLY
+  module in the agent that `shutil.move`s under `/media/*`.
+  `place()` rejects USER_OWNED zones directly and forces budget
+  headroom check before moving (raises `BudgetExceededError` with
+  the exact overage bytes). `promote_movie` (recommendations →
+  movies) and `promote_show` (tv-sampler → tv) migrate whole folders
+  so subtitles/metadata sidecars stay with the video. Disambiguation
+  appends `(N)` on filename or folder collision. Jellyfin naming
+  helpers (`jellyfin_movie_folder`, `jellyfin_episode_filename`, etc.)
+  plus a hand-rolled `sanitize_filename` (no new dep needed). CLI:
+  `librarian place <id> [--zone] [--dry-run]` and `librarian promote
+  <id> [--dry-run]` which dispatches on content_type. **41 new
+  tests** (16 naming incl. Windows-forbidden chars and trailing dots;
+  10 placement incl. budget rejection and dry-run side-effect-free;
+  9 promote incl. missing-source + disambiguation + show_id-as-
+  folder fallback). **220 unit total**, mypy --strict clean on 49
+  files
 
 ### 2026-04-19 — phase2 batch (cards 05 → 02 → 04, landed serially)
 
@@ -235,43 +266,6 @@ to sequential in-session execution.
   every secret field. `logs tail` on blueridge prints a helpful
   "run this on don-quixote" message since neither `docker` nor
   `journalctl` is on the laptop's PATH
-
-### 2026-04-19 — phase1-05: LLMProvider skeleton + live Ollama round-trip
-
-- `ranking/provider.py` — `LLMProvider` runtime-checkable Protocol +
-  `HealthStatus` BaseModel. Contract: never-raise for bad model output
-  (fall back instead), every call logs to `llm_calls`
-- `ranking/ollama_provider.py` — uses `ollama.AsyncClient` for model
-  listing and `instructor.AsyncInstructor` over the OpenAI-compatible
-  `/v1/...` endpoint for structured JSON. `health_check` verifies the
-  model is pulled, round-trips a 2-field `_SmokeResponse`, logs outcome
-  to `llm_calls` regardless of pass/fail. `rank`/`update_profile`/
-  `parse_search` raise `NotImplementedError` until phase3
-- `ranking/claude_provider.py` — Anthropic client; returns
-  status=down cleanly when `ANTHROPIC_API_KEY` is unset (no HTTP call,
-  no log row — "never silently fall through to Claude")
-- `ranking/tfidf_provider.py` — no external dep; `health_check` always
-  ok; other methods `NotImplementedError` until phase3-06
-- `ranking/factory.py` — `make_provider(name, cfg)` and
-  `make_provider_for_workflow("nightly_ranking", cfg)`. Both take an
-  optional `conn` that the providers use for `llm_calls` audit
-- CLI: `health ollama` / `health claude` / `health all`. The
-  consolidated `health all` gathers Ollama + Jellyfin + Claude (if
-  configured) + state DB + disk usage and exits 2 if any component is
-  down
-- Instructor pitfall documented: `from_provider("ollama/<model>")`
-  needs `base_url=http://host:11434/v1` (OpenAI-compat path), not the
-  native `/api/*` path. The native `ollama.AsyncClient` uses the base
-  URL without `/v1`
-- Tests: 10 new (5 factory, 4 llm_calls logging, 1 Ollama live smoke).
-  Integration suite is now 4 tests (3 Jellyfin + 1 Ollama smoke),
-  all pass under `RUN_INTEGRATION_TESTS=1`. Unit suite: 62 pass
-- Added `anthropic.*` to mypy overrides so the pre-commit sandbox
-  mypy passes; relaxed Windows-specific
-  `PytestUnraisableExceptionWarning` (ProactorEventLoop cleanup
-  noise that doesn't affect real test outcome)
-- Live `health all` returns clean JSON: ollama ok (5.6 s first-call
-  latency incl. cold load), jellyfin 10.11.8, state_db v2, disk 0/500 GB
 
 ---
 

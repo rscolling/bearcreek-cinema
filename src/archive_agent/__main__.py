@@ -360,6 +360,111 @@ def librarian_evict(
     _not_implemented("librarian evict")
 
 
+@librarian_app.command("place")
+def librarian_place(
+    archive_id: str = typer.Argument(..., help="Archive.org item identifier"),
+    zone: str = typer.Option(
+        "recommendations",
+        "--zone",
+        help="Target zone (recommendations/tv/tv-sampler; not movies)",
+    ),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Report plan without moving"),
+) -> None:
+    """Move a completed download from staging into a /media zone."""
+    from archive_agent.config import ConfigError, load_config
+    from archive_agent.librarian import BudgetExceededError, PlacementError, Zone, place
+    from archive_agent.state.db import get_db, init_db
+    from archive_agent.state.queries import candidates as q_candidates
+
+    try:
+        cfg = load_config()
+    except ConfigError as exc:
+        typer.echo(f"ERROR: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+
+    try:
+        zone_enum = Zone(zone)
+    except ValueError as exc:
+        typer.echo(f"invalid --zone={zone!r}", err=True)
+        raise typer.Exit(code=1) from exc
+
+    init_db(cfg.paths.state_db)
+    conn = get_db()
+
+    candidate = q_candidates.get_by_archive_id(conn, archive_id)
+    if candidate is None:
+        typer.echo(f"no candidate with archive_id={archive_id!r}", err=True)
+        raise typer.Exit(code=1)
+
+    row = conn.execute(
+        "SELECT path FROM downloads WHERE archive_id = ? AND status = 'done' "
+        "ORDER BY id DESC LIMIT 1",
+        (archive_id,),
+    ).fetchone()
+    if row is None or not row["path"]:
+        typer.echo(
+            f"no completed download on disk for {archive_id!r} — run "
+            f"`archive-agent download {archive_id}` first",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+
+    try:
+        result = place(
+            conn,
+            cfg,
+            candidate=candidate,
+            source_path=Path(row["path"]),
+            zone=zone_enum,
+            dry_run=dry_run,
+        )
+    except BudgetExceededError as exc:
+        typer.echo(f"BUDGET EXCEEDED: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    except PlacementError as exc:
+        typer.echo(f"ERROR: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    typer.echo(result.model_dump_json(indent=2))
+
+
+@librarian_app.command("promote")
+def librarian_promote(
+    archive_id: str = typer.Argument(..., help="Archive.org item identifier"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Report plan without moving"),
+) -> None:
+    """Promote a candidate's folder from recommendations/tv-sampler to
+    movies/tv. Content-type on the candidate picks the right variant."""
+    from archive_agent.config import ConfigError, load_config
+    from archive_agent.librarian import PlacementError, promote_movie, promote_show
+    from archive_agent.state.db import get_db, init_db
+    from archive_agent.state.models import ContentType
+    from archive_agent.state.queries import candidates as q_candidates
+
+    try:
+        cfg = load_config()
+    except ConfigError as exc:
+        typer.echo(f"ERROR: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+
+    init_db(cfg.paths.state_db)
+    conn = get_db()
+
+    candidate = q_candidates.get_by_archive_id(conn, archive_id)
+    if candidate is None:
+        typer.echo(f"no candidate with archive_id={archive_id!r}", err=True)
+        raise typer.Exit(code=1)
+
+    try:
+        if candidate.content_type == ContentType.MOVIE:
+            result = promote_movie(conn, cfg, candidate, dry_run=dry_run)
+        else:
+            result = promote_show(conn, cfg, candidate, dry_run=dry_run)
+    except PlacementError as exc:
+        typer.echo(f"ERROR: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    typer.echo(result.model_dump_json(indent=2))
+
+
 # --- jellyfin ---
 jellyfin_app = typer.Typer(no_args_is_help=True, help="Inspect the configured Jellyfin server.")
 app.add_typer(jellyfin_app, name="jellyfin")

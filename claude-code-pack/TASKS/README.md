@@ -30,7 +30,7 @@ history is ingested into state DB; Ollama round-trip works.
 - [x] `phase2-04-ia-get-downloader.md` — subprocess wrapper around ia-get
   with fallback to `internetarchive`
 - [x] `phase2-05-librarian-core.md` — zone management, budget tracking
-- [ ] `phase2-06-librarian-placement.md` — `place()` + file move logic
+- [x] `phase2-06-librarian-placement.md` — `place()` + file move logic
 - [ ] `phase2-07-librarian-eviction.md` — eviction policies
 - [ ] `phase2-08-librarian-tv-sampler.md` — sampler-first TV policy
 - [ ] `phase2-09-jellyfin-placement.md` — file naming + library scan
