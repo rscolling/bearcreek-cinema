@@ -29,6 +29,33 @@ def _not_implemented(name: str) -> NoReturn:
     raise typer.Exit(code=1)
 
 
+@app.callback()
+def _configure_logging_once() -> None:
+    """Initialize structlog before any command runs.
+
+    Reads ``[logging]`` from config.toml when it's loadable; falls back
+    to a sane default (INFO, JSON) otherwise so even ``archive-agent
+    --help`` produces consistent stderr lines if the logging layer is
+    ever invoked there.
+    """
+    import os
+    from typing import Literal
+
+    from archive_agent.logging import configure_logging
+
+    level = os.environ.get("ARCHIVE_AGENT_LOG_LEVEL", "INFO")
+    fmt: Literal["json", "console"] = "json"
+    try:
+        from archive_agent.config import load_config
+
+        cfg = load_config()
+        level = cfg.logging.level
+        fmt = cfg.logging.format
+    except Exception:
+        pass
+    configure_logging(level=level, fmt=fmt)
+
+
 # --- config ---
 config_app = typer.Typer(no_args_is_help=True, help="Inspect and validate configuration.")
 app.add_typer(config_app, name="config")
@@ -288,6 +315,114 @@ def jellyfin_libraries() -> None:
                 typer.echo(f"{lib.id}  {lib.collection_type or '?':<10}  {lib.name}")
 
     asyncio.run(_run())
+
+
+# --- logs ---
+logs_app = typer.Typer(no_args_is_help=True, help="Tail and inspect agent logs.")
+app.add_typer(logs_app, name="logs")
+
+
+@logs_app.command("tail")
+def logs_tail(
+    lines: int = typer.Option(50, "--lines", "-n", help="How many recent lines to show"),
+    follow: bool = typer.Option(False, "--follow", "-f", help="Stream new lines"),
+) -> None:
+    """Tail the agent's logs via `docker compose logs` (or journalctl)."""
+    import shutil
+    import subprocess
+
+    candidates: list[list[str]] = []
+    if shutil.which("docker"):
+        cmd = ["docker", "compose", "logs", "--tail", str(lines)]
+        if follow:
+            cmd.append("-f")
+        cmd.append("archive-agent")
+        candidates.append(cmd)
+    if shutil.which("journalctl"):
+        cmd = ["journalctl", "--user", "-u", "archive-agent-daemon", "-n", str(lines)]
+        if follow:
+            cmd.append("-f")
+        candidates.append(cmd)
+
+    if not candidates:
+        typer.echo(
+            "neither `docker` nor `journalctl` is on PATH; nothing to tail. "
+            "On don-quixote, run `cd /home/blueridge/archive-agent && "
+            "docker compose logs -f archive-agent` manually.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+
+    for cmd in candidates:
+        try:
+            subprocess.run(cmd, check=False)
+            return
+        except FileNotFoundError:
+            continue
+
+
+# --- llm-calls ---
+llm_calls_app = typer.Typer(no_args_is_help=True, help="Inspect the llm_calls audit log.")
+app.add_typer(llm_calls_app, name="llm-calls")
+
+
+@llm_calls_app.command("stats")
+def llm_calls_stats(
+    limit_recent: int = typer.Option(10, "--recent", help="Recent rows to list"),
+) -> None:
+    """Print call counts, percentile latencies, outcomes, and recent rows."""
+    from archive_agent.config import ConfigError, load_config
+    from archive_agent.state.db import get_db, init_db
+
+    try:
+        cfg = load_config()
+    except ConfigError as exc:
+        typer.echo(f"ERROR: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    init_db(cfg.paths.state_db)
+    conn = get_db()
+
+    total = conn.execute("SELECT COUNT(*) AS c FROM llm_calls").fetchone()["c"]
+    if total == 0:
+        typer.echo("No llm_calls rows yet. Run `archive-agent health ollama` first.")
+        return
+
+    typer.echo(f"Total calls: {total}\n")
+
+    typer.echo("By provider:")
+    for row in conn.execute(
+        "SELECT provider, COUNT(*) AS c FROM llm_calls GROUP BY provider ORDER BY c DESC"
+    ):
+        typer.echo(f"  {row['provider']:<10} {row['c']}")
+
+    typer.echo("\nBy outcome:")
+    for row in conn.execute(
+        "SELECT outcome, COUNT(*) AS c FROM llm_calls GROUP BY outcome ORDER BY c DESC"
+    ):
+        typer.echo(f"  {row['outcome']:<10} {row['c']}")
+
+    typer.echo("\nLatency by (provider, workflow):")
+    groups: dict[tuple[str, str], list[int]] = {}
+    for row in conn.execute("SELECT provider, workflow, latency_ms FROM llm_calls"):
+        groups.setdefault((row["provider"], row["workflow"]), []).append(row["latency_ms"])
+    for (provider, workflow), latencies in sorted(groups.items()):
+        latencies.sort()
+        n = len(latencies)
+        p50 = latencies[n // 2]
+        p95 = latencies[min(n - 1, int(n * 0.95))]
+        p99 = latencies[min(n - 1, int(n * 0.99))]
+        typer.echo(f"  {provider:<8} {workflow:<18} n={n:<4} p50={p50}ms p95={p95}ms p99={p99}ms")
+
+    typer.echo(f"\nLast {limit_recent} calls:")
+    for row in conn.execute(
+        "SELECT timestamp, provider, model, workflow, latency_ms, outcome "
+        "FROM llm_calls ORDER BY id DESC LIMIT ?",
+        (limit_recent,),
+    ):
+        typer.echo(
+            f"  {row['timestamp']}  {row['provider']:<8} {row['workflow']:<16} "
+            f"{row['latency_ms']:>6}ms  {row['outcome']:<10} {row['model']}"
+        )
 
 
 # --- state ---

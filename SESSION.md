@@ -1,6 +1,6 @@
 # SESSION
 
-**Last updated:** 2026-04-19 by phase1-05 ollama-smoke session (LLMProvider protocol + 3 providers + factory + health all JSON report; live qwen2.5:7b round-trip works)
+**Last updated:** 2026-04-19 by phase1-06 logging-observability session (structlog + redaction + audit_llm_call context manager; Phase 1 complete)
 
 Cross-session continuity for Claude Code working on Bear Creek Cinema.
 Read at the start of every session. Updated at the end of every session.
@@ -15,12 +15,16 @@ progress goes to the checklist in `claude-code-pack/TASKS/README.md`.
 
 ## Current status
 
-**Phase:** Phase 1 in progress. Scaffold + Ollama stack landed.
+**Phase:** **Phase 1 complete.** Scaffold, Ollama stack, config loader,
+state DB, Jellyfin client, LLMProvider skeleton, and logging +
+observability are all landed.
 
-**Active task:** None. Last phase 1 card: `phase1-06-logging-observability`
-(structlog config + secret redaction + llm_calls audit context manager).
-After that, Phase 1 is complete and phase 2 (Archive.org discovery +
-librarian) opens up.
+**Active task:** None. Phase 2 (Archive.org discovery + librarian) is
+next: `phase2-01-archive-discovery`, `phase2-02-tmdb-enrichment`,
+`phase2-03-tv-grouping`, `phase2-04-ia-get-downloader`,
+`phase2-05-librarian-core` … etc. No task cards exist yet for phase 2
+beyond the roadmap entries in `TASKS/README.md` — they'll need to be
+written before implementation starts.
 
 **Codebase state:** Python package live at `src/archive_agent/` with
 stub CLI (10 command groups, all exit 1), `tests/` scaffold with two
@@ -70,6 +74,48 @@ package installed editable with dev extras.
 ## Recent sessions
 
 *Most recent first. Prune entries older than the last 5 retained.*
+
+### 2026-04-19 — phase1-06: structlog + redaction + llm_calls audit — Phase 1 complete
+
+- `logging.py` — `configure_logging(level, fmt)` sets up structlog with
+  json or console renderer, forces `logging.basicConfig` to override
+  any prior handlers, and installs the custom `redact_processor`.
+  `get_logger(name)` returns a typed BoundLogger
+- Redaction rules: exact, prefix-with-underscore, or
+  suffix-with-underscore against `{api_key, token, password, secret,
+  authorization}`. Tightened from substring matching because the first
+  version redacted `input_tokens` / `output_tokens` as `***` — they're
+  counters, not secrets. New regression test guards against that
+- `ranking/audit.py` — `audit_llm_call(provider, model, workflow,
+  conn=)` async context manager. Times the call, classifies outcome
+  (`ok` | `malformed` | `timeout` | `error` | `fallback`), writes one
+  row to `llm_calls` on exit, emits a structured `event=llm_call` log
+  line. Re-raises exceptions after the row is recorded — `outcome=error`
+  shows up in the audit log even when the call fails loudly. `conn=None`
+  is a silent no-op for scripts that want just the timing wrapper
+- Refactored all three providers: OllamaProvider, ClaudeProvider,
+  TFIDFProvider now route through `audit_llm_call` instead of
+  hand-rolled `_log()`. Claude still has its own early-out for
+  "api_key is None" so a disabled provider doesn't pollute the audit log
+- CLI: `archive-agent logs tail [--lines --follow]` shells out to
+  `docker compose logs archive-agent` (or journalctl) when available;
+  `archive-agent llm-calls stats` summarises the audit table (totals,
+  by-provider, by-outcome, p50/p95/p99 latencies per (provider,
+  workflow), last N rows)
+- `@app.callback()` runs `configure_logging` before every subcommand,
+  reading `[logging]` from config when loadable, else defaulting to
+  `INFO json`. Respects `ARCHIVE_AGENT_LOG_LEVEL` env override
+- Tests: 11 new (7 logging + 4 audit). The audit tests cover happy
+  path, exception re-raise with `outcome=error`, `TimeoutError` →
+  `outcome=timeout`, explicit outcome overrides, `fallback` outcome,
+  silent operation without conn, and monotonic `latency_ms`. Total
+  suite: 77 unit + 4 integration
+- Live: 3x `health ollama` → `llm-calls stats` shows 3 rows,
+  p50/p95/p99 ≈ 5.5 s (CPU-only qwen2.5:7b on cold cache), all
+  outcomes `ok`. `config show` emits `api_key: "**********"` for
+  every secret field. `logs tail` on blueridge prints a helpful
+  "run this on don-quixote" message since neither `docker` nor
+  `journalctl` is on the laptop's PATH
 
 ### 2026-04-19 — phase1-05: LLMProvider skeleton + live Ollama round-trip
 
@@ -207,29 +253,6 @@ package installed editable with dev extras.
   pre-commit mypy hook (isolated env) doesn't trip on the untyped
   package. Also tweaked `config.example.toml` so the Claude key uses
   the new `${ANTHROPIC_API_KEY:-}` optional syntax
-
-### 2026-04-19 — phase1-07: Ollama stack live on don-quixote + credentials validated
-
-- Wrote `/home/blueridge/ollama/docker-compose.yml` on the server:
-  `ollama/ollama:latest`, CPU-only, named volume for `/root/.ollama`,
-  published on `:11434`, `OLLAMA_KEEP_ALIVE=1h`, `ollama list`
-  healthcheck. Mirrored into the repo as `docker/ollama.compose.yml`
-- `docker compose up -d` succeeded; `ollama_default` network auto-created
-- Pulled both models in the background via `nohup`: `llama3.2:3b`
-  (31 s) then `qwen2.5:7b` (70 s). Total ~100 s — fast home fiber
-- Verified reachability from laptop over Tailscale at
-  `http://don-quixote:11434/api/tags` — both models listed with
-  full metadata (Q4_K_M GGUF)
-- Round-tripped a structured-JSON prompt on `qwen2.5:7b`:
-  returned `{"ok": true, "model_name": "qwen2.5"}`, eval_ms=3048,
-  total_ms=10904 (includes one-time cold load into RAM)
-- TMDb + Jellyfin credentials validated in the same session:
-  TMDb key returns HTTP 200 on `/3/configuration`; Jellyfin key +
-  user GUID return HTTP 200 on `/Users/{uid}` as `colling`
-  (admin). Library has 261 items but ~0 playback — flagged in
-  blockers for phase3-04 profile bootstrap
-- Ticked `phase1-07` in `TASKS/README.md`; `phase1-02-config` is
-  next in line
 
 ---
 

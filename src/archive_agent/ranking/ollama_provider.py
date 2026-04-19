@@ -7,15 +7,13 @@ Uses two client libraries side by side:
   endpoint for structured-JSON round trips. Instructor handles
   Pydantic response-model coercion and retries on malformed output.
 
-Every call (including ``health_check``) writes one row to
-``llm_calls`` through the optional sqlite3 connection; tests pass an
-in-memory connection, production wires the singleton.
+Every call goes through ``audit_llm_call`` (phase1-06) so one row lands
+in ``llm_calls`` regardless of success or failure.
 """
 
 from __future__ import annotations
 
 import sqlite3
-import time
 from typing import Any
 
 import instructor
@@ -23,6 +21,7 @@ import ollama
 from pydantic import BaseModel
 
 from archive_agent.config import LlmOllamaConfig
+from archive_agent.ranking.audit import audit_llm_call
 from archive_agent.ranking.provider import HealthStatus
 from archive_agent.state.models import (
     Candidate,
@@ -31,7 +30,6 @@ from archive_agent.state.models import (
     TasteEvent,
     TasteProfile,
 )
-from archive_agent.state.queries import llm_calls
 
 __all__ = ["OllamaProvider"]
 
@@ -73,73 +71,53 @@ class OllamaProvider:
         assert isinstance(client, instructor.AsyncInstructor)
         return client
 
-    def _log(
-        self,
-        workflow: str,
-        latency_ms: int,
-        outcome: str = "ok",
-        model: str | None = None,
-    ) -> None:
-        if self._conn is None:
-            return
-        llm_calls.insert(
-            self._conn,
-            provider="ollama",
-            model=model or self._config.model,
-            workflow=workflow,
-            latency_ms=latency_ms,
-            outcome=outcome,  # type: ignore[arg-type]
-        )
-
     # --- LLMProvider API -------------------------------------------------
 
     async def health_check(self) -> HealthStatus:
-        """Verify the configured model is pulled and round-trips a
-        trivial structured prompt. Logs one ``llm_calls`` row regardless
-        of outcome."""
-        t0 = time.perf_counter()
-        try:
-            tags = await self._native_client().list()
-            available = {m.model for m in tags.models if m.model is not None}
-            if self._config.model not in available:
-                latency_ms = int((time.perf_counter() - t0) * 1000)
-                self._log("health_check", latency_ms, outcome="error")
+        """Verify the configured model is pulled and round-trip a trivial
+        structured prompt. One ``llm_calls`` row is written either way."""
+        async with audit_llm_call(
+            "ollama", self._config.model, "health_check", conn=self._conn
+        ) as ctx:
+            try:
+                tags = await self._native_client().list()
+                available = {m.model for m in tags.models if m.model is not None}
+                if self._config.model not in available:
+                    ctx.outcome = "error"
+                    return HealthStatus(
+                        status="down",
+                        detail=f"model {self._config.model!r} not pulled; "
+                        f"available: {sorted(available)}",
+                        model=self._config.model,
+                        latency_ms=ctx.latency_ms,
+                    )
+                client = self._instructor_client()
+                resp: _SmokeResponse = await client.chat.completions.create(
+                    messages=[{"role": "user", "content": _SMOKE_PROMPT}],
+                    response_model=_SmokeResponse,
+                )
+                if not resp.ok:
+                    ctx.outcome = "malformed"
+                    return HealthStatus(
+                        status="degraded",
+                        detail=f"smoke round-trip returned ok=False ({resp!r})",
+                        model=self._config.model,
+                        latency_ms=ctx.latency_ms,
+                    )
+                return HealthStatus(
+                    status="ok",
+                    detail="smoke round-trip passed",
+                    model=self._config.model,
+                    latency_ms=ctx.latency_ms,
+                )
+            except Exception as exc:
+                ctx.outcome = "error"
                 return HealthStatus(
                     status="down",
-                    detail=f"model {self._config.model!r} not pulled; available: {sorted(available)}",
+                    detail=f"{type(exc).__name__}: {exc}",
                     model=self._config.model,
-                    latency_ms=latency_ms,
+                    latency_ms=ctx.latency_ms,
                 )
-            client = self._instructor_client()
-            resp: _SmokeResponse = await client.chat.completions.create(
-                messages=[{"role": "user", "content": _SMOKE_PROMPT}],
-                response_model=_SmokeResponse,
-            )
-            latency_ms = int((time.perf_counter() - t0) * 1000)
-            if not resp.ok:
-                self._log("health_check", latency_ms, outcome="malformed")
-                return HealthStatus(
-                    status="degraded",
-                    detail=f"smoke round-trip returned ok=False ({resp!r})",
-                    model=self._config.model,
-                    latency_ms=latency_ms,
-                )
-            self._log("health_check", latency_ms, outcome="ok")
-            return HealthStatus(
-                status="ok",
-                detail="smoke round-trip passed",
-                model=self._config.model,
-                latency_ms=latency_ms,
-            )
-        except Exception as exc:
-            latency_ms = int((time.perf_counter() - t0) * 1000)
-            self._log("health_check", latency_ms, outcome="error")
-            return HealthStatus(
-                status="down",
-                detail=f"{type(exc).__name__}: {exc}",
-                model=self._config.model,
-                latency_ms=latency_ms,
-            )
 
     async def rank(
         self,
@@ -162,10 +140,9 @@ class OllamaProvider:
     # --- debugging escape hatch -----------------------------------------
 
     async def raw_generate(self, prompt: str, **kw: Any) -> str:
-        """Non-structured generate for debugging. Not part of the
-        Protocol."""
-        t0 = time.perf_counter()
-        resp = await self._native_client().generate(model=self._config.model, prompt=prompt, **kw)
-        latency_ms = int((time.perf_counter() - t0) * 1000)
-        self._log("raw_generate", latency_ms)
-        return str(resp.response)
+        """Non-structured generate for debugging. Not part of the Protocol."""
+        async with audit_llm_call("ollama", self._config.model, "raw_generate", conn=self._conn):
+            resp = await self._native_client().generate(
+                model=self._config.model, prompt=prompt, **kw
+            )
+            return str(resp.response)

@@ -1,19 +1,19 @@
 """TF-IDF fallback LLMProvider — no LLM at all.
 
 Used when Ollama is down or as a deliberate "cheap path" selected in
-``[llm.workflows]``. The TF-IDF prefilter itself lives in ``ranking``
-(phase3-02); this class just exposes it as a provider so the factory
-can swap it in transparently.
+``[llm.workflows]``. Routing through ``audit_llm_call`` (with
+``provider="tfidf"``) lets us compare fallback vs LLM usage from the
+``llm_calls`` table later.
 
-Only ``health_check`` is meaningful at phase1-05 time — the rest raise
-``NotImplementedError`` until the prefilter lands.
+Only ``health_check`` is meaningful at phase1-05 time; the prefilter
+itself arrives in phase3-02 / phase3-06.
 """
 
 from __future__ import annotations
 
 import sqlite3
-import time
 
+from archive_agent.ranking.audit import audit_llm_call
 from archive_agent.ranking.provider import HealthStatus
 from archive_agent.state.models import (
     Candidate,
@@ -22,9 +22,10 @@ from archive_agent.state.models import (
     TasteEvent,
     TasteProfile,
 )
-from archive_agent.state.queries import llm_calls
 
 __all__ = ["TFIDFProvider"]
+
+_MODEL_NAME = "tfidf-v1"
 
 
 class TFIDFProvider:
@@ -33,29 +34,15 @@ class TFIDFProvider:
     def __init__(self, conn: sqlite3.Connection | None = None) -> None:
         self._conn = conn
 
-    def _log(self, workflow: str, latency_ms: int, outcome: str = "ok") -> None:
-        if self._conn is None:
-            return
-        llm_calls.insert(
-            self._conn,
-            provider="tfidf",
-            model="tfidf",
-            workflow=workflow,
-            latency_ms=latency_ms,
-            outcome=outcome,  # type: ignore[arg-type]
-        )
-
     async def health_check(self) -> HealthStatus:
         """Always ok — TF-IDF has no external dependency."""
-        t0 = time.perf_counter()
-        latency_ms = int((time.perf_counter() - t0) * 1000)
-        self._log("health_check", latency_ms)
-        return HealthStatus(
-            status="ok",
-            detail="no external dependency",
-            model="tfidf",
-            latency_ms=latency_ms,
-        )
+        async with audit_llm_call("tfidf", _MODEL_NAME, "health_check", conn=self._conn) as ctx:
+            return HealthStatus(
+                status="ok",
+                detail="no external dependency",
+                model=_MODEL_NAME,
+                latency_ms=ctx.latency_ms,
+            )
 
     async def rank(
         self,
