@@ -32,14 +32,40 @@ app.add_typer(config_app, name="config")
 
 @config_app.command("show")
 def config_show() -> None:
-    """Print the parsed config to stdout."""
-    _not_implemented("config show")
+    """Print the parsed config to stdout (secrets redacted)."""
+    from archive_agent.config import ConfigError, load_config
+
+    try:
+        cfg = load_config()
+    except ConfigError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=2) from exc
+    typer.echo(cfg.model_dump_json(indent=2))
 
 
 @config_app.command("validate")
 def config_validate() -> None:
-    """Validate config.toml and environment interpolation."""
-    _not_implemented("config validate")
+    """Validate config.toml and environment interpolation.
+
+    Exit codes: 0 = clean or warnings-only, 2 = errors.
+    """
+    from archive_agent.config import ConfigError, load_config, validate_config
+
+    try:
+        cfg = load_config()
+    except ConfigError as exc:
+        typer.echo(f"ERROR: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    warnings, errors = validate_config(cfg)
+    for w in warnings:
+        typer.echo(f"WARN:  {w}")
+    for e in errors:
+        typer.echo(f"ERROR: {e}", err=True)
+    if errors:
+        typer.echo(f"\n{len(errors)} error(s), {len(warnings)} warning(s).", err=True)
+        raise typer.Exit(code=2)
+    summary = f"Config OK ({len(warnings)} warning(s))." if warnings else "Config OK."
+    typer.echo(summary)
 
 
 # --- history ---

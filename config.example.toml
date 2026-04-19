@@ -46,7 +46,10 @@ timeout_seconds = 180
 max_retries = 2
 
 [llm.claude]
-api_key = "${ANTHROPIC_API_KEY}"
+# The ${VAR:-} fallback means an unset ANTHROPIC_API_KEY collapses to the
+# empty string (interpreted as "no key configured"), not a load-time
+# error. Required only when a workflow in [llm.workflows] picks "claude".
+api_key = "${ANTHROPIC_API_KEY:-}"
 model = "claude-sonnet-4-6"
 small_model = "claude-haiku-4-5"
 

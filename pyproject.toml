@@ -57,6 +57,7 @@ module = [
     "sklearn.*",
     "instructor.*",
     "ollama.*",
+    "dotenv.*",
 ]
 ignore_missing_imports = true
 

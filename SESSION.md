@@ -1,6 +1,6 @@
 # SESSION
 
-**Last updated:** 2026-04-19 by phase1-07 Ollama stack session (stack deployed on don-quixote, qwen2.5:7b + llama3.2:3b pulled, round-trip confirmed)
+**Last updated:** 2026-04-19 by phase1-02 config session (typed TOML loader + ${VAR:-fallback} env interpolation + validator; 12 new tests pass)
 
 Cross-session continuity for Claude Code working on Bear Creek Cinema.
 Read at the start of every session. Updated at the end of every session.
@@ -17,9 +17,10 @@ progress goes to the checklist in `claude-code-pack/TASKS/README.md`.
 
 **Phase:** Phase 1 in progress. Scaffold + Ollama stack landed.
 
-**Active task:** None. Next card: `phase1-02-config` (typed TOML
-loading — prerequisite for the remaining phase1 cards). `phase1-06`
-(logging/observability) can also run any time.
+**Active task:** None. Next card: `phase1-03-state-schema` (SQLite
+schema + migrations) or `phase1-04-jellyfin-client` (REST client +
+history ingestion — needs phase1-03 for persistence). `phase1-06`
+(logging/observability) can run any time.
 
 **Codebase state:** Python package live at `src/archive_agent/` with
 stub CLI (10 command groups, all exit 1), `tests/` scaffold with two
@@ -69,6 +70,40 @@ package installed editable with dev extras.
 ## Recent sessions
 
 *Most recent first. Prune entries older than the last 5 retained.*
+
+### 2026-04-19 — phase1-02: typed TOML config + env interpolation
+
+- Wrote `src/archive_agent/config.py`: Pydantic models per CONTRACTS.md
+  §5 (Paths, Jellyfin, Archive, Tmdb, Llm{Workflows,Ollama,Claude},
+  Librarian{,Tv}, Api, Logging, Config). Secrets wrapped in
+  `SecretStr` so `model_dump_json` redacts them automatically
+- Loader resolution: explicit path → `ARCHIVE_AGENT_CONFIG` →
+  `./config.toml` → `$XDG_CONFIG_HOME/archive-agent/config.toml` →
+  `~/.config/archive-agent/config.toml`. Uses stdlib `tomllib`.
+  `.env` loaded via `python-dotenv` before interpolation
+- Env interpolation: `${VAR}` required, `${VAR:-fallback}` optional
+  (matches bash). Missing vars without a fallback raise `ConfigError`
+  with the var name AND the TOML path that referenced it
+- `validate_config(cfg) -> (warnings, errors)` for cross-field checks
+  Pydantic can't express: distinct media paths, DNS-resolvable hosts,
+  directories that exist, year-range sanity, claude-selected-but-unset
+- CLI wiring: `archive-agent config show` dumps redacted JSON;
+  `archive-agent config validate` prints warnings (exit 0) or errors
+  (exit 2)
+- 12 new unit tests cover happy path, missing-var error, fallback
+  syntax, file-not-found listing, explicit-path precedence, secret
+  redaction, each validator branch, and interpolation recursion.
+  Total: 14 tests pass
+- Live check on blueridge: `cp config.example.toml config.toml`,
+  `archive-agent config show` prints clean JSON with
+  `api_key: "**********"`, `archive-agent config validate` returns
+  "Config OK (6 warning(s))" — the 6 warnings are Docker hostnames
+  not resolving and `/media/*` not existing (expected outside the
+  container)
+- Added `dotenv.*` to `pyproject.toml`'s `mypy.overrides` so the
+  pre-commit mypy hook (isolated env) doesn't trip on the untyped
+  package. Also tweaked `config.example.toml` so the Claude key uses
+  the new `${ANTHROPIC_API_KEY:-}` optional syntax
 
 ### 2026-04-19 — phase1-07: Ollama stack live on don-quixote + credentials validated
 
@@ -164,16 +199,6 @@ package installed editable with dev extras.
   `phase1-01-scaffold` is unambiguously the next work to pick up.
   Open blockers unchanged (API keys, hardware check, sibling repo
   name, CRLF policy / `.gitattributes` before code lands)
-
-### 2026-04-18 — Design round: heartbeat / SESSION.md
-
-- Discussed two-agent separation (Claude Code vs. running Bear Creek
-  Cinema agent) and clarified scope
-- Added `SESSION.md` at repo root with Option 3 structure (current
-  state + recent log)
-- Updated `claude-code-pack/CLAUDE.md` to reference SESSION.md in the
-  operating model
-- Outcome: SESSION.md seeded, protocol documented, no code changes
 
 ---
 
