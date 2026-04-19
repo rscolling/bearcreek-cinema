@@ -41,7 +41,8 @@ def test_current_version_fresh_is_zero() -> None:
 def test_pending_reflects_current_version() -> None:
     conn = connect(":memory:")
     try:
-        assert pending_versions(conn) == [1]
+        expected_all = [int(m.VERSION) for m in discover()]
+        assert pending_versions(conn) == expected_all
         apply_pending(conn)
         assert pending_versions(conn) == []
     finally:
@@ -51,7 +52,8 @@ def test_pending_reflects_current_version() -> None:
 def test_apply_pending_creates_all_tables() -> None:
     conn = connect(":memory:")
     try:
-        assert apply_pending(conn) == [1]
+        expected_all = [int(m.VERSION) for m in discover()]
+        assert apply_pending(conn) == expected_all
         tables = _tables(conn)
         expected = {
             "candidates",
@@ -65,7 +67,7 @@ def test_apply_pending_creates_all_tables() -> None:
             "schema_version",
         }
         assert expected <= tables
-        assert current_version(conn) == 1
+        assert current_version(conn) == max(expected_all)
     finally:
         conn.close()
 
@@ -75,21 +77,24 @@ def test_apply_pending_is_idempotent() -> None:
     try:
         first = apply_pending(conn)
         second = apply_pending(conn)
-        assert first == [1]
+        assert first == [int(m.VERSION) for m in discover()]
         assert second == []
     finally:
         conn.close()
 
 
-def test_down_then_up_round_trip() -> None:
+def test_down_then_up_round_trip_for_initial() -> None:
     conn = connect(":memory:")
     try:
         apply_pending(conn)
         assert "candidates" in _tables(conn)
-        revert_version(conn, 1)
+        # Revert later migrations in reverse order, then the initial one
+        for mod in reversed(discover()):
+            revert_version(conn, int(mod.VERSION))
         assert "candidates" not in _tables(conn)
         assert current_version(conn) == 0
-        assert apply_pending(conn) == [1]
+        re_applied = apply_pending(conn)
+        assert re_applied == [int(m.VERSION) for m in discover()]
         assert "candidates" in _tables(conn)
     finally:
         conn.close()

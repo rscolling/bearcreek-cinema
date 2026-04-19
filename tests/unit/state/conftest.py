@@ -16,6 +16,6 @@ def db() -> Iterator[sqlite3.Connection]:
     """A fresh in-memory DB with all migrations applied."""
     conn = connect(":memory:")
     applied = apply_pending(conn)
-    assert applied == [1], f"expected [1] to be applied, got {applied}"
+    assert applied and applied[0] == 1, f"expected migrations starting at 1, got {applied}"
     yield conn
     conn.close()

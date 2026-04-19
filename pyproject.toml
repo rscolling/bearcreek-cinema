@@ -58,6 +58,8 @@ module = [
     "instructor.*",
     "ollama.*",
     "dotenv.*",
+    "httpx.*",
+    "structlog.*",
 ]
 ignore_missing_imports = true
 

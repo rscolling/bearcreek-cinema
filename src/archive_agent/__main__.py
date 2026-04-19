@@ -9,9 +9,12 @@ land in later phase1/2/3 cards, one command group at a time.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import NoReturn
+from typing import TYPE_CHECKING, NoReturn
 
 import typer
+
+if TYPE_CHECKING:
+    from archive_agent.jellyfin.client import JellyfinClient
 
 app = typer.Typer(
     name="archive-agent",
@@ -79,14 +82,88 @@ def history_dump(
     kind: str = typer.Option("any", "--type", help="movie | show | any"),
     since: str = typer.Option("", "--since", help="YYYY-MM-DD lower bound"),
 ) -> None:
-    """Print watch history rows to stdout."""
-    _not_implemented("history dump")
+    """Print watch history rows to stdout (one per line)."""
+    import asyncio
+    from datetime import datetime
+
+    from archive_agent.config import ConfigError, load_config
+    from archive_agent.jellyfin.client import JellyfinClient
+    from archive_agent.jellyfin.history import fetch_episode_history, fetch_movie_history
+
+    if kind not in {"movie", "show", "any"}:
+        typer.echo(f"invalid --type={kind!r}; expected movie|show|any", err=True)
+        raise typer.Exit(code=1)
+
+    try:
+        cfg = load_config()
+    except ConfigError as exc:
+        typer.echo(f"ERROR: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+
+    since_dt: datetime | None = None
+    if since:
+        try:
+            since_dt = datetime.fromisoformat(since)
+        except ValueError as exc:
+            typer.echo(f"invalid --since={since!r}; expected YYYY-MM-DD", err=True)
+            raise typer.Exit(code=1) from exc
+
+    async def _run() -> None:
+        async with JellyfinClient(
+            cfg.jellyfin.url, cfg.jellyfin.api_key, cfg.jellyfin.user_id
+        ) as client:
+            if kind in ("movie", "any"):
+                for m in await fetch_movie_history(client):
+                    if since_dt and m.last_played_date and m.last_played_date < since_dt:
+                        continue
+                    typer.echo(
+                        f"MOVIE  {m.jellyfin_item_id:<32}  "
+                        f"plays={m.play_count} pct={m.played_percentage:5.1f}  "
+                        f"{m.title[:60]}"
+                    )
+            if kind in ("show", "any"):
+                for e in await fetch_episode_history(client):
+                    if since_dt and e.last_played_date and e.last_played_date < since_dt:
+                        continue
+                    series = e.series_name or e.series_id
+                    typer.echo(
+                        f"EP     {e.jellyfin_item_id:<32}  "
+                        f"plays={e.play_count} pct={e.played_percentage:5.1f}  "
+                        f"{series} S{e.season:02d}E{e.episode:02d}"
+                    )
+
+    asyncio.run(_run())
 
 
 @history_app.command("sync")
-def history_sync() -> None:
-    """Pull the latest watch history from Jellyfin into the state DB."""
-    _not_implemented("history sync")
+def history_sync(
+    dry_run: bool = typer.Option(False, "--dry-run", help="Classify + count without writing"),
+) -> None:
+    """Ingest Jellyfin watch history into the state DB (idempotent)."""
+    import asyncio
+
+    from archive_agent.config import ConfigError, load_config
+    from archive_agent.jellyfin.client import JellyfinClient
+    from archive_agent.jellyfin.history import ingest_all_history
+    from archive_agent.state.db import get_db, init_db
+
+    try:
+        cfg = load_config()
+    except ConfigError as exc:
+        typer.echo(f"ERROR: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+
+    init_db(cfg.paths.state_db)
+    conn = get_db()
+
+    async def _run() -> object:
+        async with JellyfinClient(
+            cfg.jellyfin.url, cfg.jellyfin.api_key, cfg.jellyfin.user_id
+        ) as client:
+            return await ingest_all_history(client, conn, dry_run=dry_run)
+
+    result = asyncio.run(_run())
+    typer.echo(result.model_dump_json(indent=2))  # type: ignore[attr-defined]
 
 
 # --- discover ---
@@ -165,6 +242,52 @@ def librarian_evict(
 ) -> None:
     """Apply eviction policies to bring usage under budget."""
     _not_implemented("librarian evict")
+
+
+# --- jellyfin ---
+jellyfin_app = typer.Typer(no_args_is_help=True, help="Inspect the configured Jellyfin server.")
+app.add_typer(jellyfin_app, name="jellyfin")
+
+
+def _open_jellyfin_client() -> JellyfinClient:
+    """Build a ``JellyfinClient`` from the current config. Caller must
+    enter the returned client as an async context manager."""
+    from archive_agent.config import ConfigError, load_config
+    from archive_agent.jellyfin.client import JellyfinClient
+
+    try:
+        cfg = load_config()
+    except ConfigError as exc:
+        typer.echo(f"ERROR: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    return JellyfinClient(cfg.jellyfin.url, cfg.jellyfin.api_key, cfg.jellyfin.user_id)
+
+
+@jellyfin_app.command("users")
+def jellyfin_users() -> None:
+    """List users visible to the API key (with their GUIDs)."""
+    import asyncio
+
+    async def _run() -> None:
+        async with _open_jellyfin_client() as client:
+            for u in await client.list_users():
+                admin = " (admin)" if u.policy.is_administrator else ""
+                typer.echo(f"{u.id}  {u.name}{admin}")
+
+    asyncio.run(_run())
+
+
+@jellyfin_app.command("libraries")
+def jellyfin_libraries() -> None:
+    """List libraries visible to the configured user."""
+    import asyncio
+
+    async def _run() -> None:
+        async with _open_jellyfin_client() as client:
+            for lib in await client.list_libraries():
+                typer.echo(f"{lib.id}  {lib.collection_type or '?':<10}  {lib.name}")
+
+    asyncio.run(_run())
 
 
 # --- state ---
@@ -272,7 +395,36 @@ def health_claude() -> None:
 @health_app.command("jellyfin")
 def health_jellyfin() -> None:
     """Verify Jellyfin is reachable and the API key works."""
-    _not_implemented("health jellyfin")
+    import asyncio
+    import json as _json
+
+    from archive_agent.config import ConfigError, load_config
+    from archive_agent.jellyfin.client import JellyfinClient
+
+    try:
+        cfg = load_config()
+    except ConfigError as exc:
+        typer.echo(f"ERROR: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+
+    async def _run() -> dict[str, str]:
+        async with JellyfinClient(
+            cfg.jellyfin.url, cfg.jellyfin.api_key, cfg.jellyfin.user_id
+        ) as client:
+            info = await client.ping()
+            await client.authenticate()
+            return {
+                "status": "ok",
+                "server_name": info.server_name,
+                "version": info.version,
+            }
+
+    try:
+        report = asyncio.run(_run())
+    except Exception as exc:
+        typer.echo(_json.dumps({"status": "down", "error": str(exc)}), err=True)
+        raise typer.Exit(code=2) from exc
+    typer.echo(_json.dumps(report, indent=2))
 
 
 @health_app.command("all")

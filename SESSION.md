@@ -1,6 +1,6 @@
 # SESSION
 
-**Last updated:** 2026-04-19 by phase1-03 state-schema session (SQLite schema + migrations + queries + 9 tables + 24 new tests)
+**Last updated:** 2026-04-19 by phase1-04 jellyfin-client session (async client, watch-history classifier + idempotent ingestion, 14 new tests, 148 real movies ingested)
 
 Cross-session continuity for Claude Code working on Bear Creek Cinema.
 Read at the start of every session. Updated at the end of every session.
@@ -17,10 +17,9 @@ progress goes to the checklist in `claude-code-pack/TASKS/README.md`.
 
 **Phase:** Phase 1 in progress. Scaffold + Ollama stack landed.
 
-**Active task:** None. Next card: `phase1-04-jellyfin-client` (REST
-client + history ingestion — depends on phase1-02 config and
-phase1-03 state, both now done). `phase1-05-ollama-smoke` and
-`phase1-06-logging-observability` can run any time.
+**Active task:** None. Next card: `phase1-05-ollama-smoke` (LLMProvider
+skeleton + real Ollama round-trip + llm_calls audit wiring). `phase1-06`
+(logging/observability) can run any time and is a good pair with 05.
 
 **Codebase state:** Python package live at `src/archive_agent/` with
 stub CLI (10 command groups, all exit 1), `tests/` scaffold with two
@@ -70,6 +69,41 @@ package installed editable with dev extras.
 ## Recent sessions
 
 *Most recent first. Prune entries older than the last 5 retained.*
+
+### 2026-04-19 — phase1-04: async Jellyfin client + history ingestion
+
+- `jellyfin/models.py` — 7 Pydantic response models with `extra='ignore'`
+  so upstream additions don't break us. Aliases keep snake_case in
+  Python, PascalCase on the wire
+- `jellyfin/client.py` — `JellyfinClient` as an async context manager
+  over `httpx.AsyncClient`. `X-Emby-Token` header auth, 30s timeout,
+  paginated item iterator, `ping`, `authenticate`, `get_user`,
+  `list_users`, `list_libraries`, `list_items{,_paginated}`, `get_item`,
+  `get_user_data`, `trigger_library_scan`, `raw_get` escape hatch
+- `jellyfin/history.py` — `MovieWatchRecord` / `EpisodeWatchRecord`
+  intermediate models, `classify_movie_signal` implementing the
+  bootstrap rules (rewatched/finished/bailed/never-played) with
+  `archive_id = "jellyfin:<uuid>"` namespacing, `ingest_all_history`
+  that writes both kinds idempotently
+- Added **migration 002** (`jellyfin_ingest_dedupe`) — unique index on
+  `episode_watches(jellyfin_item_id, timestamp)`. Movie dedupe is
+  query-level on `(archive_id, kind, source=bootstrap)`
+- CLI: `health jellyfin`, `jellyfin users`, `jellyfin libraries`,
+  `history dump [--type movie|show|any] [--since]`, `history sync
+  [--dry-run]` — all live against the server
+- Tests: 14 new (5 model parsing, 9 history incl. classifier + 3
+  idempotence/dry-run round-trips using a fake client over the existing
+  `sample_jellyfin_history.json` fixture). 3 live integration tests
+  under `RUN_INTEGRATION_TESTS=1` exercise ping, libraries, and user
+  resolution. Total suite: 52 unit + 3 integration
+- Live run on blueridge → don-quixote: `health jellyfin` OK on
+  10.11.8; `history sync` ingested 148 movie taste events (all
+  `kind=rejected, strength=0.2` because play_count=0 across the
+  library — SESSION.md blocker about cold-start history still holds);
+  second sync skipped all 148 — idempotency confirmed
+- Added `httpx.*` and `structlog.*` to pyproject `mypy.overrides` so
+  the pre-commit sandbox mypy (which only sees declared
+  additional_dependencies) doesn't trip on untyped-import errors
 
 ### 2026-04-19 — phase1-03: state DB schema + migrations + queries
 
@@ -187,33 +221,6 @@ package installed editable with dev extras.
   arrow from the Typer root help string (Windows cp1252 console
   couldn't encode them)
 - Ticked `phase1-01-scaffold.md` in `TASKS/README.md`
-
-### 2026-04-18 — Deployment topology locked in; docs revised
-
-- User decision: archive-agent runs in its own Docker container on
-  don-quixote; Ollama runs in its own Docker stack (separate from the
-  agent) at `/home/blueridge/ollama/`
-- SSH'd into don-quixote (`ssh blueridge@192.168.1.228` — user is
-  `blueridge`, not `rob` as `ENVIRONMENT.md` had said). Captured:
-  Jellyfin is a Portainer stack with `/media` mounted **ro** into the
-  container on `jellyfin_default` network; 31 GB RAM, 821 GB free,
-  Intel HD Graphics 530 only (CPU-only Ollama); Ollama not yet
-  installed; 28 containers already on the box
-- Saved deployment facts to project memory
-  (`memory/deployment_topology.md`)
-- Revised `ENVIRONMENT.md`: replaced the don-quixote target section
-  (host paths vs. container paths, user fix, hardware facts, network
-  joins), swapped systemd unit section for a Docker stack section,
-  revised "Verifying setup" to exec through `docker compose`
-- Updated `phase1-01-scaffold.md`: added Deliverable 6 (Dockerfile,
-  docker-compose.yml, .dockerignore) and matching done-when + out-of-scope
-- Added new `phase1-07-ollama-stack.md` for standing up the Ollama
-  compose + pulling `qwen2.5:7b` and `llama3.2:3b`; registered in
-  `TASKS/README.md`. Note: phase1-07 should precede phase1-05 despite
-  the number
-- Outcome: the Docker deployment shape is now concrete enough that
-  `phase1-07` followed by `phase1-01` is a clean forward path. Hardware
-  blocker closed. Open: API keys, sibling repo name, `.gitattributes`
 
 ---
 
