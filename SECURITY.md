@@ -4,8 +4,9 @@
 
 **Please do not open a public issue** for security vulnerabilities.
 
-Email: `security@agenticagent.example` (replace with real address before
-publishing)
+Use GitHub's private vulnerability reporting — click **Security** → *Report a
+vulnerability* on this repo, or visit
+`https://github.com/rscolling/bearcreek-cinema/security/advisories/new`.
 
 Include:
 
