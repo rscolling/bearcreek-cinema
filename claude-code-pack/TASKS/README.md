@@ -46,7 +46,7 @@ ephemeral content; TV sampler flow works for one show.
 - [x] `phase3-02-tfidf-prefilter.md` — cosine similarity over candidate
   features
 - [x] `phase3-03-ollama-rank.md` — LLM reranker
-- [ ] `phase3-04-profile-bootstrap.md` — initial profile from history
+- [x] `phase3-04-profile-bootstrap.md` — initial profile from history
 - [ ] `phase3-05-profile-update.md` — incremental profile updates
 - [ ] `phase3-06-tfidf-provider.md` — TFIDFProvider full implementation
 - [ ] `phase3-07-claude-rank.md` — ClaudeProvider full implementation

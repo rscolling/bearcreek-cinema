@@ -23,7 +23,11 @@ from pydantic import BaseModel, ValidationError
 from archive_agent.config import LlmOllamaConfig
 from archive_agent.logging import get_logger
 from archive_agent.ranking.audit import audit_llm_call
-from archive_agent.ranking.prompts import RankResponse, build_rank_prompt
+from archive_agent.ranking.prompts import (
+    RankResponse,
+    build_rank_prompt,
+    build_update_profile_prompt,
+)
 from archive_agent.ranking.provider import HealthStatus
 from archive_agent.state.models import (
     Candidate,
@@ -202,7 +206,63 @@ class OllamaProvider:
         current: TasteProfile,
         events: list[TasteEvent],
     ) -> TasteProfile:
-        raise NotImplementedError("OllamaProvider.update_profile arrives in phase3-05")
+        """Produce a new profile incorporating ``events``.
+
+        Never raises for bad model output — on any failure, returns the
+        current profile with ``version`` incremented (no-op evolution).
+        The caller is expected to run ``taste.update.preserve_ids`` on
+        the result before persisting, because the LLM will occasionally
+        drop ID lists.
+        """
+        from datetime import UTC, datetime
+
+        prompt = build_update_profile_prompt(current, events)
+        check_prompt_fits(prompt, num_ctx=self._config.num_ctx, margin_pct=0.2)
+
+        fallback = current.model_copy(
+            update={
+                "version": current.version + 1,
+                "updated_at": datetime.now(UTC),
+            }
+        )
+
+        try:
+            client = self._instructor_client()
+        except Exception as exc:
+            _log.error("ollama_update_profile_client_error", error=str(exc))
+            return fallback
+
+        async with audit_llm_call(
+            "ollama", self._config.model, "update_profile", conn=self._conn
+        ) as ctx:
+            try:
+                resp: TasteProfile = await client.chat.completions.create(
+                    messages=[{"role": "user", "content": prompt}],
+                    response_model=TasteProfile,
+                    max_retries=self._config.max_retries,
+                )
+            except ValidationError as exc:
+                ctx.outcome = "malformed"
+                _log.warning("ollama_update_profile_malformed", error=str(exc))
+                return fallback
+            except TimeoutError:
+                ctx.outcome = "timeout"
+                _log.warning("ollama_update_profile_timeout")
+                return fallback
+            except Exception as exc:
+                ctx.outcome = "error"
+                _log.warning("ollama_update_profile_error", error=str(exc))
+                return fallback
+
+        # Force version forward regardless of what the model returned —
+        # versioning is assigned at the insert site (state.queries), not
+        # the LLM. Same for updated_at, which stays authoritative here.
+        return resp.model_copy(
+            update={
+                "version": current.version + 1,
+                "updated_at": datetime.now(UTC),
+            }
+        )
 
     async def parse_search(self, query: str) -> SearchFilter:
         raise NotImplementedError("OllamaProvider.parse_search arrives in phase4")

@@ -323,6 +323,107 @@ def taste_aggregate() -> None:
         )
 
 
+@taste_app.command("bootstrap")
+def taste_bootstrap(
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="Generate the profile without inserting it"
+    ),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Skip y/N confirmation"),
+    force: bool = typer.Option(
+        False, "--force", help="Insert a new version even if one exists"
+    ),
+) -> None:
+    """Synthesize the first TasteProfile from existing watch history."""
+    import asyncio
+
+    from archive_agent.config import ConfigError, load_config
+    from archive_agent.ranking.factory import make_provider_for_workflow
+    from archive_agent.state.db import get_db, init_db
+    from archive_agent.taste import (
+        NoSignalError,
+        ProfileExistsError,
+        bootstrap_profile,
+    )
+
+    try:
+        cfg = load_config()
+    except ConfigError as exc:
+        typer.echo(f"ERROR: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+
+    init_db(cfg.paths.state_db)
+    conn = get_db()
+    provider = make_provider_for_workflow("profile_update", cfg, conn=conn)
+
+    async def _run() -> object:
+        return await bootstrap_profile(conn, provider, dry_run=True, force=force)
+
+    try:
+        generated = asyncio.run(_run())
+    except ProfileExistsError as exc:
+        typer.echo(f"ERROR: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    except NoSignalError as exc:
+        typer.echo(f"ERROR: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+
+    typer.echo(generated.model_dump_json(indent=2))  # type: ignore[attr-defined]
+
+    if dry_run:
+        typer.echo("\n(dry run — not inserted)")
+        return
+
+    if not yes:
+        typer.echo("")
+        confirm = typer.prompt("Insert this profile? [y/N]", default="n", show_default=False)
+        if confirm.strip().lower() not in {"y", "yes"}:
+            typer.echo("Aborted.")
+            raise typer.Exit(code=1)
+
+    async def _insert() -> object:
+        return await bootstrap_profile(conn, provider, dry_run=False, force=force)
+
+    final = asyncio.run(_insert())
+    typer.echo(f"\nInserted version {final.version}.")  # type: ignore[attr-defined]
+
+
+@taste_app.command("show-profile")
+def taste_show_profile() -> None:
+    """Print the latest TasteProfile (version, summary, lists)."""
+    from archive_agent.config import ConfigError, load_config
+    from archive_agent.state.db import get_db, init_db
+    from archive_agent.state.queries import taste_profile_versions as q_profiles
+
+    try:
+        cfg = load_config()
+    except ConfigError as exc:
+        typer.echo(f"ERROR: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+
+    init_db(cfg.paths.state_db)
+    conn = get_db()
+
+    profile = q_profiles.get_latest_profile(conn)
+    if profile is None:
+        typer.echo("No profile yet — run `archive-agent taste bootstrap`.")
+        raise typer.Exit(code=1)
+
+    typer.echo(f"version:       {profile.version}")
+    typer.echo(f"updated_at:    {profile.updated_at.isoformat()}")
+    typer.echo(f"\nsummary:\n  {profile.summary}\n")
+    typer.echo(f"liked_genres:     {', '.join(profile.liked_genres) or '-'}")
+    typer.echo(f"disliked_genres:  {', '.join(profile.disliked_genres) or '-'}")
+    if profile.era_preferences:
+        eras = ", ".join(
+            f"{e.decade}s({e.weight:+.1f})" for e in profile.era_preferences
+        )
+        typer.echo(f"era_preferences:  {eras}")
+    typer.echo(f"liked_ids:        {len(profile.liked_archive_ids)} movies / "
+               f"{len(profile.liked_show_ids)} shows")
+    typer.echo(f"disliked_ids:     {len(profile.disliked_archive_ids)} movies / "
+               f"{len(profile.disliked_show_ids)} shows")
+
+
 @taste_app.command("show")
 def taste_show(
     show_id: str = typer.Argument(..., help="Show identifier (as in candidates.show_id)"),

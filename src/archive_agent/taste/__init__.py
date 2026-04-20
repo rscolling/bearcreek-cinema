@@ -13,6 +13,14 @@ from archive_agent.taste.aggregator import (
     evaluate_show,
     refresh_show_state,
 )
+from archive_agent.taste.bootstrap import (
+    BootstrapInput,
+    NoSignalError,
+    ProfileExistsError,
+    bootstrap_profile,
+    empty_profile,
+    gather_bootstrap_input,
+)
 from archive_agent.taste.ratings import (
     RATING_KINDS,
     latest_for_all_shows,
@@ -23,8 +31,14 @@ __all__ = [
     "RATING_KINDS",
     "BingeAction",
     "BingeOutcome",
+    "BootstrapInput",
+    "NoSignalError",
+    "ProfileExistsError",
     "aggregate_all_shows",
+    "bootstrap_profile",
+    "empty_profile",
     "evaluate_show",
+    "gather_bootstrap_input",
     "latest_for_all_shows",
     "latest_for_show",
     "refresh_show_state",

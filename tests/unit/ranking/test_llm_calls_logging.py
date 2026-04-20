@@ -73,9 +73,8 @@ async def test_ollama_stub_methods_raise(config: Config, db: sqlite3.Connection)
     provider = OllamaProvider(config.llm.ollama, conn=db)
     profile = TasteProfile(version=1, updated_at=datetime.now(UTC))
 
-    # ``rank`` is implemented (phase3-03) — empty candidates returns [].
+    # ``rank`` (phase3-03) and ``update_profile`` (phase3-04) are
+    # implemented. ``parse_search`` still lands in phase 4.
     assert await provider.rank(profile, []) == []
-    with pytest.raises(NotImplementedError):
-        await provider.update_profile(profile, [])
     with pytest.raises(NotImplementedError):
         await provider.parse_search("noir")
