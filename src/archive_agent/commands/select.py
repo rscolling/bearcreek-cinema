@@ -57,6 +57,11 @@ class CandidateNotFoundError(RuntimeError):
     """Raised when ``select_candidate`` is called with an unknown archive_id."""
 
 
+# Keep references to fire-and-forget commit tasks so the event loop
+# doesn't GC them mid-download.
+_BACKGROUND_TASKS: set[asyncio.Task[None]] = set()
+
+
 class SelectResult(BaseModel):
     archive_id: str
     status: SelectStatus
@@ -282,8 +287,12 @@ async def commit_show(
                     detail=str(exc),
                 )
 
-    # Fire-and-forget. The request returns as soon as enqueue starts.
-    asyncio.create_task(_enqueue())
+    # Fire-and-forget. Holding a reference in the module-level set
+    # keeps the event loop from GC'ing the task mid-download; the
+    # done callback drops it when the coroutine returns.
+    task = asyncio.create_task(_enqueue())
+    _BACKGROUND_TASKS.add(task)
+    task.add_done_callback(_BACKGROUND_TASKS.discard)
 
     _log.info(
         "commit_show_started",
