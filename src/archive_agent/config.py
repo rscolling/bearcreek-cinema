@@ -143,6 +143,10 @@ class RecommendConfig(BaseModel):
 class ApiConfig(BaseModel):
     host: str = "0.0.0.0"
     port: PositiveInt = 8787
+    # Ceiling for /poster/{id} disk cache. Evicted oldest-accessed
+    # first once exceeded (safety net — caching is best-effort).
+    poster_cache_size_mb: PositiveInt = 200
+    poster_upstream_timeout_s: PositiveInt = 10
 
 
 class LoggingConfig(BaseModel):
