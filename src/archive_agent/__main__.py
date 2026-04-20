@@ -1873,14 +1873,10 @@ def health_all() -> None:
     """Consolidated health report: Ollama, Claude (if configured),
     Jellyfin, state DB, and disk. Exits 2 if any component is down."""
     import asyncio
-    import json as _json
-    import shutil
 
+    from archive_agent.api.subsystems import gather_health
     from archive_agent.config import ConfigError, load_config
-    from archive_agent.jellyfin.client import JellyfinClient
-    from archive_agent.ranking.factory import make_provider
     from archive_agent.state.db import get_db, init_db
-    from archive_agent.state.migrations import current_version
 
     try:
         cfg = load_config()
@@ -1891,69 +1887,9 @@ def health_all() -> None:
     init_db(cfg.paths.state_db)
     conn = get_db()
 
-    async def _jellyfin() -> dict[str, object]:
-        try:
-            async with JellyfinClient(
-                cfg.jellyfin.url, cfg.jellyfin.api_key, cfg.jellyfin.user_id
-            ) as client:
-                info = await client.ping()
-                await client.authenticate()
-                return {"status": "ok", "version": info.version, "server_name": info.server_name}
-        except Exception as exc:
-            return {"status": "down", "detail": f"{type(exc).__name__}: {exc}"}
-
-    async def _ollama() -> dict[str, object]:
-        provider = make_provider("ollama", cfg, conn=conn)
-        status = await provider.health_check()
-        return status.model_dump()
-
-    async def _claude() -> dict[str, object] | None:
-        if cfg.llm.claude.api_key is None:
-            return None  # not configured; omit from report
-        provider = make_provider("claude", cfg, conn=conn)
-        status = await provider.health_check()
-        return status.model_dump()
-
-    async def _gather() -> dict[str, object]:
-        jelly, ollama_s, claude_s = await asyncio.gather(_jellyfin(), _ollama(), _claude())
-        out: dict[str, object] = {
-            "ollama": ollama_s,
-            "jellyfin": jelly,
-            "state_db": {"status": "ok", "schema_version": current_version(conn)},
-        }
-        if claude_s is not None:
-            out["claude"] = claude_s
-        return out
-
-    report = asyncio.run(_gather())
-
-    # Disk check: total used across the four agent-managed zones vs. budget
-    used_bytes = 0
-    for path in (
-        cfg.paths.media_movies,
-        cfg.paths.media_tv,
-        cfg.paths.media_recommendations,
-        cfg.paths.media_tv_sampler,
-    ):
-        if path.exists():
-            usage = shutil.disk_usage(path)
-            used_bytes = max(used_bytes, usage.used)
-    budget_gb = cfg.librarian.max_disk_gb
-    report["disk"] = {
-        "status": "ok",
-        "used_gb": round(used_bytes / 1e9, 2),
-        "budget_gb": budget_gb,
-    }
-
-    down = [
-        name
-        for name, sub in report.items()
-        if isinstance(sub, dict) and sub.get("status") == "down"
-    ]
-    report["status"] = "ok" if not down else "down"
-
-    typer.echo(_json.dumps(report, indent=2, default=str))
-    if down:
+    report = asyncio.run(gather_health(cfg, conn))
+    typer.echo(report.model_dump_json(indent=2, exclude_none=True))
+    if report.status == "down":
         raise typer.Exit(code=2)
 
 

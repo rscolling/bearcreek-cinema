@@ -31,6 +31,7 @@ import structlog
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
+from archive_agent.api.routes.health import router as health_router
 from archive_agent.api.routes.root import router as root_router
 from archive_agent.config import Config
 from archive_agent.logging import get_logger
@@ -147,6 +148,7 @@ def create_app(config: Config) -> FastAPI:
     app.add_exception_handler(Exception, _unhandled_exception_handler)
 
     app.include_router(root_router)
+    app.include_router(health_router)
 
     return app
 

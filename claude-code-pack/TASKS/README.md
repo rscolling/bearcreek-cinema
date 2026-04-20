@@ -62,7 +62,7 @@ movie+TV shortlist with LLM-generated reasoning, and
 ## Phase 4: HTTP API
 
 - [x] `phase4-01-fastapi-scaffold.md` — service skeleton, logging middleware
-- [ ] `phase4-02-health-endpoint.md` — /health with subsystem status
+- [x] `phase4-02-health-endpoint.md` — /health with subsystem status
 - [ ] `phase4-03-recommendations-endpoints.md` — /recommendations* routes
 - [ ] `phase4-04-select-flow.md` — POST /select triggers download flow
 - [ ] `phase4-05-search-endpoint.md` — NL search via small Ollama model
