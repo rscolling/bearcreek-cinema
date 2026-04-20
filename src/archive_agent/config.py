@@ -84,6 +84,8 @@ class LlmClaudeConfig(BaseModel):
     api_key: SecretStr | None = None
     model: str = "claude-sonnet-4-6"
     small_model: str = "claude-haiku-4-5"
+    # Enough for 10 picks + full profile summary; bigger wastes money.
+    max_tokens: PositiveInt = 4096
 
     @field_validator("api_key", mode="before")
     @classmethod

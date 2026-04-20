@@ -741,6 +741,86 @@ def rank_ollama(
         typer.echo(f"        {r.reasoning}")
 
 
+@rank_app.command("claude")
+def rank_claude(
+    n: int = typer.Option(5, "--n", help="Number of picks"),
+    k: int = typer.Option(50, "--k", help="Prefilter shortlist size"),
+    type_filter: str = typer.Option("any", "--type", help="movie | show | any"),
+    genres: str = typer.Option("", "--genres", help="Smoke-test liked genres"),
+) -> None:
+    """Run the two-stage pipeline with ClaudeProvider (costs real money)."""
+    import asyncio
+    from datetime import UTC, datetime
+
+    from archive_agent.config import ConfigError, load_config
+    from archive_agent.ranking.claude_provider import ClaudeProvider
+    from archive_agent.ranking.tfidf import TFIDFIndex, prefilter
+    from archive_agent.state.db import get_db, init_db
+    from archive_agent.state.models import ContentType, TasteProfile
+    from archive_agent.taste import latest_for_all_shows
+
+    try:
+        cfg = load_config()
+    except ConfigError as exc:
+        typer.echo(f"ERROR: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+
+    if cfg.llm.claude.api_key is None:
+        typer.echo(
+            "Claude is not configured — set ANTHROPIC_API_KEY and "
+            "[llm.claude].api_key in config.toml.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+
+    if type_filter not in {"movie", "show", "any"}:
+        typer.echo(f"invalid --type={type_filter!r}", err=True)
+        raise typer.Exit(code=1)
+
+    init_db(cfg.paths.state_db)
+    conn = get_db()
+
+    index = TFIDFIndex.build(conn)
+    if index.size == 0:
+        typer.echo("No candidates — run `archive-agent discover` first.", err=True)
+        raise typer.Exit(code=1)
+
+    profile = TasteProfile(
+        version=0,
+        updated_at=datetime.now(UTC),
+        liked_genres=[g.strip() for g in genres.split(",") if g.strip()],
+    )
+    content_types: list[ContentType] | None
+    if type_filter == "movie":
+        content_types = [ContentType.MOVIE]
+    elif type_filter == "show":
+        content_types = [ContentType.SHOW]
+    else:
+        content_types = None
+
+    shortlist = prefilter(index, conn, profile, k=k, content_types=content_types)
+    if not shortlist:
+        typer.echo("Prefilter produced no candidates.")
+        return
+
+    candidates = [c for c, _ in shortlist]
+    ratings = latest_for_all_shows(conn)
+    provider = ClaudeProvider(cfg.llm.claude, conn=conn)
+
+    picks = asyncio.run(provider.rank(profile, candidates, n=n, ratings=ratings))
+    if not picks:
+        typer.echo("No picks returned.")
+        return
+    for r in picks:
+        cand = r.candidate
+        year = str(cand.year) if cand.year else "????"
+        typer.echo(
+            f"  #{r.rank}  {r.score:.2f}  {cand.content_type.value:<7} {year}  "
+            f"{cand.title[:55]}"
+        )
+        typer.echo(f"        {r.reasoning}")
+
+
 @rank_app.command("prefilter")
 def rank_prefilter(
     k: int = typer.Option(50, "--k", help="Shortlist size"),
@@ -1201,6 +1281,63 @@ def logs_tail(
 # --- llm-calls ---
 llm_calls_app = typer.Typer(no_args_is_help=True, help="Inspect the llm_calls audit log.")
 app.add_typer(llm_calls_app, name="llm-calls")
+
+
+@llm_calls_app.command("cost")
+def llm_calls_cost(
+    since: str = typer.Option(
+        "", "--since", help="YYYY-MM-DD lower bound (inclusive)"
+    ),
+) -> None:
+    """Sum Claude spend from ``llm_calls`` rows in the window."""
+    from archive_agent.config import ConfigError, load_config
+    from archive_agent.ranking.claude_provider import estimate_cost_cents
+    from archive_agent.state.db import get_db, init_db
+
+    try:
+        cfg = load_config()
+    except ConfigError as exc:
+        typer.echo(f"ERROR: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    init_db(cfg.paths.state_db)
+    conn = get_db()
+
+    sql = (
+        "SELECT model, input_tokens, output_tokens FROM llm_calls "
+        "WHERE provider = 'claude'"
+    )
+    params: tuple[object, ...] = ()
+    if since:
+        sql += " AND timestamp >= ?"
+        params = (since,)
+    rows = conn.execute(sql, params).fetchall()
+
+    by_model: dict[str, dict[str, float]] = {}
+    total_cents = 0.0
+    for row in rows:
+        cents = estimate_cost_cents(
+            row["model"], row["input_tokens"], row["output_tokens"]
+        )
+        agg = by_model.setdefault(
+            row["model"], {"calls": 0, "input": 0, "output": 0, "cents": 0.0}
+        )
+        agg["calls"] += 1
+        agg["input"] += int(row["input_tokens"] or 0)
+        agg["output"] += int(row["output_tokens"] or 0)
+        agg["cents"] += cents
+        total_cents += cents
+
+    if not rows:
+        typer.echo("No Claude calls in window.")
+        return
+    typer.echo(f"{'model':<28} {'calls':>6} {'in_tok':>9} {'out_tok':>9} {'cost':>8}")
+    for model, agg in sorted(by_model.items()):
+        typer.echo(
+            f"{model:<28} {int(agg['calls']):>6} "
+            f"{int(agg['input']):>9} {int(agg['output']):>9} "
+            f"${agg['cents'] / 100.0:>7.4f}"
+        )
+    typer.echo(f"\nTotal: ${total_cents / 100.0:.4f}")
 
 
 @llm_calls_app.command("stats")
