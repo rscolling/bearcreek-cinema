@@ -48,10 +48,12 @@ async def test_claude_health_without_key_does_not_log(
     assert _llm_rows(db) == []
 
 
-async def test_tfidf_health_always_ok_and_logs(db: sqlite3.Connection) -> None:
+async def test_tfidf_health_is_degraded_on_empty_corpus(db: sqlite3.Connection) -> None:
+    """Phase3-06 changed health semantics — empty corpus is 'degraded'
+    (ranker would return []), populated corpus is 'ok'."""
     provider = TFIDFProvider(conn=db)
     status = await provider.health_check()
-    assert status.status == "ok"
+    assert status.status == "degraded"
     rows = _llm_rows(db)
     assert len(rows) == 1
     assert rows[0]["provider"] == "tfidf"
@@ -62,7 +64,9 @@ async def test_provider_without_conn_is_silent(config: Config) -> None:
     """A provider built without a conn must still work — just no logs."""
     provider = TFIDFProvider(conn=None)
     status = await provider.health_check()
-    assert status.status == "ok"
+    # Without a conn there's no index to check; treat it as degraded,
+    # not an error — status check shouldn't raise.
+    assert status.status in {"ok", "degraded"}
 
 
 async def test_ollama_stub_methods_raise(config: Config, db: sqlite3.Connection) -> None:

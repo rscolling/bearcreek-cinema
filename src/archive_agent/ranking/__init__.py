@@ -7,17 +7,24 @@ the concrete classes.
 """
 
 from archive_agent.ranking.claude_provider import ClaudeProvider
-from archive_agent.ranking.factory import make_provider, make_provider_for_workflow
+from archive_agent.ranking.factory import (
+    FallbackProvider,
+    make_fallback_provider,
+    make_provider,
+    make_provider_for_workflow,
+)
 from archive_agent.ranking.ollama_provider import OllamaProvider
 from archive_agent.ranking.provider import HealthStatus, LLMProvider
 from archive_agent.ranking.tfidf_provider import TFIDFProvider
 
 __all__ = [
     "ClaudeProvider",
+    "FallbackProvider",
     "HealthStatus",
     "LLMProvider",
     "OllamaProvider",
     "TFIDFProvider",
+    "make_fallback_provider",
     "make_provider",
     "make_provider_for_workflow",
 ]

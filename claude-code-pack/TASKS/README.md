@@ -48,7 +48,7 @@ ephemeral content; TV sampler flow works for one show.
 - [x] `phase3-03-ollama-rank.md` — LLM reranker
 - [x] `phase3-04-profile-bootstrap.md` — initial profile from history
 - [x] `phase3-05-profile-update.md` — incremental profile updates
-- [ ] `phase3-06-tfidf-provider.md` — TFIDFProvider full implementation
+- [x] `phase3-06-tfidf-provider.md` — TFIDFProvider full implementation
 - [ ] `phase3-07-claude-rank.md` — ClaudeProvider full implementation
 - [x] `phase3-08-recommend-command.md` — `archive-agent recommend` wires
   it all together
