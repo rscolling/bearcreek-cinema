@@ -387,6 +387,77 @@ def taste_bootstrap(
     typer.echo(f"\nInserted version {final.version}.")  # type: ignore[attr-defined]
 
 
+@taste_app.command("update")
+def taste_update_profile(
+    dry_run: bool = typer.Option(False, "--dry-run", help="Plan only, don't insert"),
+    force: bool = typer.Option(False, "--force", help="Bypass rate-limit + min-events gates"),
+) -> None:
+    """Evolve the taste profile from events since the last version."""
+    import asyncio
+
+    from archive_agent.config import ConfigError, load_config
+    from archive_agent.ranking.factory import make_provider_for_workflow
+    from archive_agent.state.db import get_db, init_db
+    from archive_agent.taste import apply_update, plan_update
+
+    try:
+        cfg = load_config()
+    except ConfigError as exc:
+        typer.echo(f"ERROR: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+
+    init_db(cfg.paths.state_db)
+    conn = get_db()
+
+    plan = plan_update(conn, cfg.taste, force=force)
+
+    typer.echo(f"current_version:    {plan.current_version}")
+    typer.echo(f"events_since_last:  {plan.events_since_last}")
+    typer.echo(f"events_to_send:     {len(plan.events_to_send)}")
+    if plan.truncated:
+        typer.echo(f"truncated:          {plan.truncated} (newest {len(plan.events_to_send)} kept)")
+    typer.echo(f"should_run:         {plan.should_run}")
+    if plan.skip_reason:
+        typer.echo(f"skip_reason:        {plan.skip_reason}")
+
+    if not plan.should_run or dry_run:
+        return
+
+    provider = make_provider_for_workflow("profile_update", cfg, conn=conn)
+
+    async def _run() -> object:
+        return await apply_update(conn, provider, plan)
+
+    updated = asyncio.run(_run())
+    typer.echo(f"\nInserted version {updated.version}.")  # type: ignore[attr-defined]
+
+
+@taste_app.command("history")
+def taste_history(
+    limit: int = typer.Option(10, "--limit", help="Max versions to show"),
+) -> None:
+    """List recent ``taste_profile_versions`` entries (newest first)."""
+    from archive_agent.config import ConfigError, load_config
+    from archive_agent.state.db import get_db, init_db
+    from archive_agent.state.queries import taste_profile_versions as q_profiles
+
+    try:
+        cfg = load_config()
+    except ConfigError as exc:
+        typer.echo(f"ERROR: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+
+    init_db(cfg.paths.state_db)
+    conn = get_db()
+
+    versions = q_profiles.list_versions(conn, limit=limit)
+    if not versions:
+        typer.echo("No profile versions.")
+        return
+    for version, updated_at, snippet in versions:
+        typer.echo(f"  v{version:<4} {updated_at.isoformat()}  {snippet}")
+
+
 @taste_app.command("show-profile")
 def taste_show_profile() -> None:
     """Print the latest TasteProfile (version, summary, lists)."""

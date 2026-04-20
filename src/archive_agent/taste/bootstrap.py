@@ -35,6 +35,7 @@ from archive_agent.state.queries import (
 from archive_agent.state.queries import (
     taste_profile_versions as q_profiles,
 )
+from archive_agent.taste.profile_ops import preserve_ids
 from archive_agent.taste.ratings import RATING_KINDS
 
 # Movie-level events that the bootstrap treats as taste signal. The
@@ -156,56 +157,6 @@ def gather_bootstrap_input(conn: sqlite3.Connection) -> BootstrapInput:
     )
 
 
-def _preserve_ids(
-    generated: TasteProfile, events: list[TasteEvent], ratings: dict[str, TasteEvent]
-) -> TasteProfile:
-    """Union the LLM's ID lists with what the events unambiguously imply.
-
-    The LLM sometimes "summarizes away" concrete IDs — don't let it.
-    Ratings always win: 👎 forces disliked, 👍/👍👍 forces liked.
-    """
-    liked_archive = set(generated.liked_archive_ids)
-    disliked_archive = set(generated.disliked_archive_ids)
-    liked_show = set(generated.liked_show_ids)
-    disliked_show = set(generated.disliked_show_ids)
-
-    for event in events:
-        positive = event.kind in {
-            TasteEventKind.FINISHED,
-            TasteEventKind.REWATCHED,
-            TasteEventKind.APPROVED,
-            TasteEventKind.BINGE_POSITIVE,
-        }
-        negative = event.kind in {
-            TasteEventKind.ABANDONED,
-            TasteEventKind.REJECTED,
-            TasteEventKind.BINGE_NEGATIVE,
-        }
-        if not positive and not negative:
-            continue
-        if event.archive_id is not None:
-            (liked_archive if positive else disliked_archive).add(event.archive_id)
-        if event.show_id is not None:
-            (liked_show if positive else disliked_show).add(event.show_id)
-
-    for show_id, rating in ratings.items():
-        if rating.kind == TasteEventKind.RATED_DOWN:
-            disliked_show.add(show_id)
-            liked_show.discard(show_id)
-        else:  # RATED_UP or RATED_LOVE
-            liked_show.add(show_id)
-            disliked_show.discard(show_id)
-
-    return generated.model_copy(
-        update={
-            "liked_archive_ids": sorted(liked_archive),
-            "disliked_archive_ids": sorted(disliked_archive),
-            "liked_show_ids": sorted(liked_show),
-            "disliked_show_ids": sorted(disliked_show),
-        }
-    )
-
-
 async def bootstrap_profile(
     conn: sqlite3.Connection,
     provider: LLMProvider,
@@ -235,7 +186,7 @@ async def bootstrap_profile(
         )
 
     generated = await provider.update_profile(empty_profile(), inp.as_event_list())
-    final = _preserve_ids(generated, [*inp.movie_events, *inp.show_events], inp.ratings)
+    final = preserve_ids(empty_profile(), generated, inp.as_event_list())
 
     if dry_run:
         return final

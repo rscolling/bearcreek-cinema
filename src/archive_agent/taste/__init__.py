@@ -21,10 +21,17 @@ from archive_agent.taste.bootstrap import (
     empty_profile,
     gather_bootstrap_input,
 )
+from archive_agent.taste.profile_ops import preserve_ids
 from archive_agent.taste.ratings import (
     RATING_KINDS,
     latest_for_all_shows,
     latest_for_show,
+)
+from archive_agent.taste.update import (
+    UpdatePlan,
+    apply_update,
+    plan_update,
+    run_if_due,
 )
 
 __all__ = [
@@ -34,12 +41,17 @@ __all__ = [
     "BootstrapInput",
     "NoSignalError",
     "ProfileExistsError",
+    "UpdatePlan",
     "aggregate_all_shows",
+    "apply_update",
     "bootstrap_profile",
     "empty_profile",
     "evaluate_show",
     "gather_bootstrap_input",
     "latest_for_all_shows",
     "latest_for_show",
+    "plan_update",
+    "preserve_ids",
     "refresh_show_state",
+    "run_if_due",
 ]

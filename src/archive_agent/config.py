@@ -111,6 +111,10 @@ class TasteConfig(BaseModel):
     binge_negative_strength: float = Field(default=0.7, ge=0.0, le=1.0)
     season_complete_min_episodes: PositiveInt = 4
     aggregate_interval_minutes: PositiveInt = 15
+    # Incremental profile-update cadence (phase3-05).
+    update_interval_hours: PositiveInt = 24
+    min_events_since_last_update: PositiveInt = 5
+    max_events_per_update: PositiveInt = 100
 
 
 class LibrarianTvConfig(BaseModel):
