@@ -31,6 +31,7 @@ import structlog
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
+from archive_agent.api.routes.disk import router as disk_router
 from archive_agent.api.routes.health import router as health_router
 from archive_agent.api.routes.poster import router as poster_router
 from archive_agent.api.routes.recommendations import router as recommendations_router
@@ -157,6 +158,7 @@ def create_app(config: Config) -> FastAPI:
     app.include_router(select_router)
     app.include_router(search_router)
     app.include_router(poster_router)
+    app.include_router(disk_router)
 
     return app
 
