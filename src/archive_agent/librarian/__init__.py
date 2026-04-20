@@ -24,6 +24,14 @@ from archive_agent.librarian.placement import (
     promote_movie,
     promote_show,
 )
+from archive_agent.librarian.tv_sampler import (
+    SamplerDecision,
+    SamplerResult,
+    decide_for_show,
+    should_promote,
+    step_all_shows,
+    step_show,
+)
 from archive_agent.librarian.zones import AGENT_MANAGED, USER_OWNED, Zone, zone_path
 
 __all__ = [
@@ -37,9 +45,12 @@ __all__ = [
     "LibrarianAction",
     "PlaceResult",
     "PlacementError",
+    "SamplerDecision",
+    "SamplerResult",
     "Zone",
     "ZoneUsage",
     "budget_report",
+    "decide_for_show",
     "execute_eviction",
     "log_action",
     "place",
@@ -48,5 +59,8 @@ __all__ = [
     "promote_show",
     "propose_committed_tv_eviction",
     "scan_zone",
+    "should_promote",
+    "step_all_shows",
+    "step_show",
     "zone_path",
 ]

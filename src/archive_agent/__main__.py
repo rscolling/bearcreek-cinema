@@ -8,6 +8,7 @@ land in later phase1/2/3 cards, one command group at a time.
 
 from __future__ import annotations
 
+import sqlite3
 from pathlib import Path
 from typing import TYPE_CHECKING, NoReturn
 
@@ -15,6 +16,7 @@ import typer
 
 if TYPE_CHECKING:
     from archive_agent.jellyfin.client import JellyfinClient
+    from archive_agent.librarian.tv_sampler import Downloader
 
 app = typer.Typer(
     name="archive-agent",
@@ -846,6 +848,107 @@ def metadata_enrich(
 
     result = asyncio.run(_run())
     typer.echo(result.model_dump_json(indent=2))  # type: ignore[attr-defined]
+
+
+# --- tv (sampler) ---
+tv_app = typer.Typer(no_args_is_help=True, help="TV sampler-first flow (phase2-08).")
+app.add_typer(tv_app, name="tv")
+
+
+def _resolve_downloader() -> Downloader:
+    """Returns a downloader callable bound to the module's semaphore."""
+    from archive_agent.archive.downloader import (
+        DownloadRequest,
+        DownloadResult,
+        download_one,
+    )
+
+    async def _dl(req: DownloadRequest, conn: sqlite3.Connection) -> DownloadResult:
+        from archive_agent.config import load_config
+
+        cfg = load_config()
+        return await download_one(req, conn, max_concurrent=cfg.librarian.max_concurrent_downloads)
+
+    return _dl
+
+
+@tv_app.command("step")
+def tv_step(
+    show_id: str = typer.Argument(..., help="TMDb show id (as stored in candidates.show_id)"),
+    show_title: str = typer.Option("", "--show-title", help="Human-readable show name for folders"),
+) -> None:
+    """Run one pass of the sampler state machine for a show."""
+    import asyncio
+
+    from archive_agent.config import ConfigError, load_config
+    from archive_agent.librarian import step_show
+    from archive_agent.state.db import get_db, init_db
+
+    try:
+        cfg = load_config()
+    except ConfigError as exc:
+        typer.echo(f"ERROR: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+
+    init_db(cfg.paths.state_db)
+    conn = get_db()
+    downloader = _resolve_downloader()
+
+    result = asyncio.run(
+        step_show(
+            conn,
+            cfg,
+            show_id,
+            downloader,
+            show_title=show_title or None,
+        )
+    )
+    typer.echo(result.model_dump_json(indent=2))
+
+
+@tv_app.command("sample")
+def tv_sample(
+    show_id: str = typer.Argument(..., help="TMDb show id (as stored in candidates.show_id)"),
+    show_title: str = typer.Option("", "--show-title", help="Human-readable show name for folders"),
+) -> None:
+    """Alias for ``tv step`` — kicks off sampling if this show hasn't
+    been sampled yet, otherwise runs a normal step. Useful for the
+    Roku "force-commit this show" flow and for manual testing."""
+    tv_step(show_id=show_id, show_title=show_title)
+
+
+@tv_app.command("status")
+def tv_status() -> None:
+    """Print per-show sampler state: current phase + next decision."""
+    import asyncio
+
+    from archive_agent.config import ConfigError, load_config
+    from archive_agent.librarian import decide_for_show
+    from archive_agent.state.db import get_db, init_db
+
+    try:
+        cfg = load_config()
+    except ConfigError as exc:
+        typer.echo(f"ERROR: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+
+    init_db(cfg.paths.state_db)
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT DISTINCT show_id FROM candidates "
+        "WHERE content_type = 'episode' AND show_id IS NOT NULL ORDER BY show_id"
+    ).fetchall()
+    if not rows:
+        typer.echo("No shows with episode candidates.")
+        return
+
+    async def _run() -> None:
+        for row in rows:
+            show_id = row["show_id"]
+            decision = decide_for_show(conn, cfg, show_id)
+            typer.echo(f"  {show_id:<12}  {decision.action:<14}  {decision.reason}")
+
+    asyncio.run(_run())
 
 
 # --- state ---

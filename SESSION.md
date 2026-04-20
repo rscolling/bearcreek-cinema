@@ -1,6 +1,6 @@
 # SESSION
 
-**Last updated:** 2026-04-19 by phase2 cards 07 + 09 (eviction TTL plan/execute + Jellyfin library scan and item-id resolution)
+**Last updated:** 2026-04-19 by phase2-08 tv-sampler (sampler-first capstone — decide_for_show + step_show + season advancement). **Phase 2 complete.**
 
 Cross-session continuity for Claude Code working on Bear Creek Cinema.
 Read at the start of every session. Updated at the end of every session.
@@ -19,20 +19,26 @@ progress goes to the checklist in `claude-code-pack/TASKS/README.md`.
 state DB, Jellyfin client, LLMProvider skeleton, and logging +
 observability are all landed.
 
-**Active task:** None. Phase 2 in progress: **8 of 9 cards done**
-(01 discovery, 02 TMDb enrichment, 03 tv-grouping, 04 downloader,
-05 librarian core, 06 placement, 07 eviction, 09 jellyfin-placement).
+**Active task:** None. **Phase 2 complete** — all 9 cards done.
+`archive-agent download <id>` → place → scan → resolve → Jellyfin
+indexed; `librarian evict` keeps disk under budget; `tv step`
+drives the sampler state machine end-to-end.
 
-Only one remaining: `phase2-08-librarian-tv-sampler` — the capstone
-that wires sampler-first TV flow (download 3 episodes → watch 2+
-in 14 days → promote Season 1 → promote subsequent seasons). It
-depends on everything else done so far, so it's the last thing to
-land Phase 2.
+Phase 3 opens next (ranking + taste profile):
 
-After Phase 2: `archive-agent download <id>` → place → scan →
-resolve flow produces a playable, Jellyfin-indexed item end-to-end;
-the librarian evicts on pressure; the TV sampler promotes shows
-that get real engagement.
+- `phase3-01-show-state-aggregator` — episode_watches → binge events
+- `phase3-02-tfidf-prefilter` — cosine similarity over candidates
+- `phase3-03-ollama-rank` — LLM reranker (real impl of
+  OllamaProvider.rank)
+- `phase3-04-profile-bootstrap` — initial taste profile from history
+- `phase3-05-profile-update` — incremental
+- `phase3-06-tfidf-provider` — full TFIDFProvider impl
+- `phase3-07-claude-rank` — full ClaudeProvider impl
+- `phase3-08-recommend-command` — `archive-agent recommend` wires it
+- `phase3-09-fts5-indexing` — SQLite FTS5 virtual table for search
+
+None of phase 3 have written cards yet beyond roadmap entries in
+`TASKS/README.md`. Drafting them is the natural next step.
 
 Phase 2 done when: `archive-agent download <movie-id>` produces a
 playable file in Jellyfin; librarian enforces budget and evicts
@@ -86,6 +92,45 @@ package installed editable with dev extras.
 ## Recent sessions
 
 *Most recent first. Prune entries older than the last 5 retained.*
+
+### 2026-04-19 — phase2-08: TV sampler capstone — Phase 2 complete
+
+- `librarian/tv_sampler.py` — `decide_for_show` (pure state machine),
+  `step_show` (executes with injectable Downloader protocol), and
+  `step_all_shows` (serial iteration so we don't spray Archive.org
+  with parallel requests across shows).
+- The decision table: no state → **start_sampling** (first N S1
+  episodes eligible); sampler partial → **wait**; sampler complete
+  and `should_promote` true → **promote** (queue rest of S1 into tv,
+  move sampler folder); sampler complete, within window, not
+  enough watches → **wait**; sampler complete, past window →
+  **evict** (phase2-07 does the actual sweep); committed through
+  season `N`, any episode watched, season `N+1` available →
+  **promote** (advance season); committed without watches →
+  **wait**.
+- `should_promote` enforces both the ≥2 finished count **and** that
+  last_playback-started window is ≤14d — so a household that watched
+  2 episodes 25 days after the sampler started doesn't promote
+  (window is current-interest, not cumulative-interest).
+- Episode-1-missing slide-forward handled per ARCHITECTURE.md:
+  sampler takes the first N S1 episodes that exist as candidates.
+  Queue remainder step filters out already-handled (season, episode)
+  pairs so a re-run doesn't re-enqueue the sampler set.
+- Circular import fix: `archive.downloader` needs `librarian.zones`
+  and tv_sampler wants DownloadRequest/DownloadResult — the
+  downloader types sit behind `TYPE_CHECKING` and `DownloadRequest`
+  imports live inside the function body. `Downloader` is a Protocol
+  (not a Callable alias) so forward refs work at runtime.
+- CLI: `tv step <id>`, `tv sample <id>` (alias), `tv status` (prints
+  decide_for_show's current verdict for every show with episode
+  candidates).
+- Added `queries.candidates.list_by_show` for the sampler to
+  enumerate a show's episodes.
+- **21 new tests** (16 decision-table covering every branch of the
+  state machine incl. the window-is-delta regression; 5 step_show
+  execution covering start-sampling + promote + wait + evict +
+  download-failure-tolerated). **301 unit total**, mypy --strict
+  clean on 52 files.
 
 ### 2026-04-19 — phase2 cards 07 + 09 (eviction, jellyfin placement)
 
@@ -235,37 +280,6 @@ to sequential in-session execution.
   (*Meet John Doe* 1941, *Ministry Of Fear* 1944, *Panther's Claw*
   1942, ...)
 - Ticked `phase2-01` in `TASKS/README.md`
-
-### 2026-04-19 — Phase 2 task cards drafted (9 cards, no code)
-
-- Wrote full task cards for every phase 2 entry already listed in
-  `TASKS/README.md`:
-  `phase2-01-archive-discovery` (Archive.org search, collection
-  scanning, `candidates` upsert),
-  `phase2-02-tmdb-enrichment` (TMDb client with SQLite cache;
-  requires migration 003 for `metadata_cache`),
-  `phase2-03-tv-grouping` (episode→show heuristics + SxEy parser +
-  low-confidence review queue; migration 004 for `tv_grouping_review`),
-  `phase2-04-ia-get-downloader` (subprocess wrapper with Python
-  library fallback; format preference; concurrency governor),
-  `phase2-05-librarian-core` (Zone enum, `BudgetReport`, audit
-  helper),
-  `phase2-06-librarian-placement` (the **only** module that calls
-  `shutil.move` under `/media/*`; Jellyfin-friendly naming;
-  `promote_movie` / `promote_show`),
-  `phase2-07-librarian-eviction` (TTL-driven plan; hard-filter on
-  `/media/movies`; committed-TV requires propose+grace path,
-  deferred execution),
-  `phase2-08-librarian-tv-sampler` (the decision table for
-  sample / promote / wait / evict; Season-N advancement),
-  `phase2-09-jellyfin-placement` (scan + item-id resolution;
-  `LibraryMap` with required zone libraries; user-side setup note
-  for the two custom Jellyfin libraries)
-- Surfaced dependencies between cards in each card's "Prerequisites"
-  section and the ordering block above
-- Two migrations flagged for phase 2: 003 (metadata_cache) in
-  phase2-02, 004 (tv_grouping_review) in phase2-03
-- No code changes this session
 
 ---
 

@@ -102,6 +102,18 @@ def list_by_status(
     return [_row_to_candidate(r) for r in rows]
 
 
+def list_by_show(conn: sqlite3.Connection, show_id: str) -> list[Candidate]:
+    """Return every candidate (typically EPISODE) rows for a given
+    show, ordered by (season, episode). Used by the TV sampler to
+    figure out what's available, what's downloaded, and what's next."""
+    rows = conn.execute(
+        "SELECT * FROM candidates WHERE show_id = ? "
+        "ORDER BY season ASC NULLS LAST, episode ASC NULLS LAST",
+        (show_id,),
+    ).fetchall()
+    return [_row_to_candidate(r) for r in rows]
+
+
 def update_status(conn: sqlite3.Connection, archive_id: str, status: CandidateStatus) -> bool:
     """Return True if exactly one row was updated."""
     cur = conn.execute(
