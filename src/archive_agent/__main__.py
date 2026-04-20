@@ -376,6 +376,103 @@ def taste_show(
     typer.echo(f"reason:               {outcome.reason}")
 
 
+# --- rank (prefilter + index ops) ---
+rank_app = typer.Typer(no_args_is_help=True, help="TF-IDF prefilter + index operations.")
+app.add_typer(rank_app, name="rank")
+
+
+def _tfidf_index_path(state_db: Path) -> Path:
+    """Pickle sits next to state.db so backups scoop both up."""
+    return state_db.parent / "tfidf_index.pkl"
+
+
+@rank_app.command("rebuild-index")
+def rank_rebuild_index() -> None:
+    """Fit a fresh TF-IDF matrix from the candidates table and save it."""
+    from archive_agent.config import ConfigError, load_config
+    from archive_agent.ranking.tfidf import TFIDFIndex
+    from archive_agent.state.db import get_db, init_db
+
+    try:
+        cfg = load_config()
+    except ConfigError as exc:
+        typer.echo(f"ERROR: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+
+    init_db(cfg.paths.state_db)
+    conn = get_db()
+    index = TFIDFIndex.build(conn)
+    path = _tfidf_index_path(cfg.paths.state_db)
+    index.save(path)
+    typer.echo(f"Indexed {index.size} candidates -> {path}")
+
+
+@rank_app.command("prefilter")
+def rank_prefilter(
+    k: int = typer.Option(50, "--k", help="Shortlist size"),
+    type_filter: str = typer.Option("any", "--type", help="movie | show | any"),
+    genres: str = typer.Option(
+        "",
+        "--genres",
+        help="Comma-separated liked genres (used when no profile exists yet)",
+    ),
+) -> None:
+    """Rank candidates by cosine similarity to a taste profile.
+
+    Until phase3-04 lands, passes ``--genres noir,western`` to build a
+    smoke-test profile on the fly.
+    """
+    from datetime import UTC, datetime
+
+    from archive_agent.config import ConfigError, load_config
+    from archive_agent.ranking.tfidf import TFIDFIndex, prefilter
+    from archive_agent.state.db import get_db, init_db
+    from archive_agent.state.models import ContentType, TasteProfile
+
+    try:
+        cfg = load_config()
+    except ConfigError as exc:
+        typer.echo(f"ERROR: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+
+    if type_filter not in {"movie", "show", "any"}:
+        typer.echo(f"invalid --type={type_filter!r}; expected movie|show|any", err=True)
+        raise typer.Exit(code=1)
+
+    init_db(cfg.paths.state_db)
+    conn = get_db()
+
+    index = TFIDFIndex.build(conn)
+    if index.size == 0:
+        typer.echo("No candidates in DB — run `archive-agent discover` first.", err=True)
+        raise typer.Exit(code=1)
+
+    profile = TasteProfile(
+        version=0,
+        updated_at=datetime.now(UTC),
+        liked_genres=[g.strip() for g in genres.split(",") if g.strip()],
+    )
+
+    content_types: list[ContentType] | None
+    if type_filter == "movie":
+        content_types = [ContentType.MOVIE]
+    elif type_filter == "show":
+        content_types = [ContentType.SHOW]
+    else:
+        content_types = None
+
+    picks = prefilter(index, conn, profile, k=k, content_types=content_types)
+    if not picks:
+        typer.echo("No matches.")
+        return
+    for cand, score in picks:
+        year = str(cand.year) if cand.year else "????"
+        typer.echo(
+            f"  {score:.3f}  {cand.content_type.value:<7} {year}  "
+            f"{cand.archive_id:<40}  {cand.title[:60]}"
+        )
+
+
 # --- profile ---
 profile_app = typer.Typer(no_args_is_help=True, help="Taste profile management.")
 app.add_typer(profile_app, name="profile")

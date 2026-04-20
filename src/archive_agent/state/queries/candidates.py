@@ -102,6 +102,16 @@ def list_by_status(
     return [_row_to_candidate(r) for r in rows]
 
 
+def list_all(conn: sqlite3.Connection) -> list[Candidate]:
+    """Return every candidate in deterministic ``archive_id`` order.
+
+    Used by the TF-IDF index builder — the parallel ``archive_ids``
+    list needs a stable ordering so score vectors align with rows.
+    """
+    rows = conn.execute("SELECT * FROM candidates ORDER BY archive_id").fetchall()
+    return [_row_to_candidate(r) for r in rows]
+
+
 def list_by_show(conn: sqlite3.Connection, show_id: str) -> list[Candidate]:
     """Return every candidate (typically EPISODE) rows for a given
     show, ordered by (season, episode). Used by the TV sampler to
