@@ -76,3 +76,32 @@ def list_all_active(conn: sqlite3.Connection, *, since: datetime) -> list[ShowSt
         (since.isoformat(),),
     ).fetchall()
     return [_row_to_state(r) for r in rows]
+
+
+def list_all(conn: sqlite3.Connection) -> list[ShowState]:
+    """Return every row in ``show_state`` in deterministic order.
+
+    Used by the aggregator: it must consider shows that have gone
+    quiet (no playback in a long time) because that's the trigger for
+    ``BINGE_NEGATIVE``.
+    """
+    rows = conn.execute("SELECT * FROM show_state ORDER BY show_id").fetchall()
+    return [_row_to_state(r) for r in rows]
+
+
+def list_show_ids_with_episodes(conn: sqlite3.Connection) -> list[str]:
+    """Return every distinct ``show_id`` that has at least one
+    episode candidate or one episode watch. Used to seed new
+    ``show_state`` rows when the aggregator encounters a show that
+    has playback but no state row yet.
+    """
+    rows = conn.execute(
+        """
+        SELECT show_id FROM candidates
+            WHERE content_type = 'episode' AND show_id IS NOT NULL
+        UNION
+        SELECT show_id FROM episode_watches
+            WHERE show_id IS NOT NULL
+        """
+    ).fetchall()
+    return sorted({row["show_id"] for row in rows})

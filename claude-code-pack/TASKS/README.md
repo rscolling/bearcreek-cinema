@@ -42,7 +42,7 @@ ephemeral content; TV sampler flow works for one show.
 
 ## Phase 3: Taste Profile + Ranking
 
-- [ ] `phase3-01-show-state-aggregator.md` — episode watches → binge events
+- [x] `phase3-01-show-state-aggregator.md` — episode watches → binge events
 - [ ] `phase3-02-tfidf-prefilter.md` — cosine similarity over candidate
   features
 - [ ] `phase3-03-ollama-rank.md` — LLM reranker

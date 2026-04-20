@@ -291,6 +291,91 @@ def recommend(
     _not_implemented("recommend")
 
 
+# --- taste (show-state aggregator + rating reader) ---
+taste_app = typer.Typer(no_args_is_help=True, help="Show-state aggregator + explicit ratings.")
+app.add_typer(taste_app, name="taste")
+
+
+@taste_app.command("aggregate")
+def taste_aggregate() -> None:
+    """Roll up episode watches into show-level binge events (idempotent)."""
+    from archive_agent.config import ConfigError, load_config
+    from archive_agent.state.db import get_db, init_db
+    from archive_agent.taste import aggregate_all_shows
+
+    try:
+        cfg = load_config()
+    except ConfigError as exc:
+        typer.echo(f"ERROR: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+
+    init_db(cfg.paths.state_db)
+    conn = get_db()
+    events = aggregate_all_shows(conn, cfg.taste)
+    if not events:
+        typer.echo("No new binge events.")
+        return
+    typer.echo(f"Emitted {len(events)} event(s):")
+    for event in events:
+        typer.echo(
+            f"  {event.kind.value:<16} {event.show_id:<12} "
+            f"strength={event.strength:.2f}  {event.timestamp.isoformat()}"
+        )
+
+
+@taste_app.command("show")
+def taste_show(
+    show_id: str = typer.Argument(..., help="Show identifier (as in candidates.show_id)"),
+) -> None:
+    """Print the current ShowState + latest rating + next aggregator decision."""
+    from datetime import UTC, datetime
+
+    from archive_agent.config import ConfigError, load_config
+    from archive_agent.state.db import get_db, init_db
+    from archive_agent.state.queries import show_state as q_show_state
+    from archive_agent.taste import (
+        evaluate_show,
+        latest_for_show,
+        refresh_show_state,
+    )
+
+    try:
+        cfg = load_config()
+    except ConfigError as exc:
+        typer.echo(f"ERROR: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+
+    init_db(cfg.paths.state_db)
+    conn = get_db()
+
+    state = refresh_show_state(conn, show_id)
+    if state is None:
+        # refresh wrote nothing — fall back to existing row if any.
+        state = q_show_state.get(conn, show_id)
+    if state is None:
+        typer.echo(f"No data for show_id={show_id!r} (no watches or episode candidates).")
+        raise typer.Exit(code=1)
+
+    rating = latest_for_show(conn, show_id)
+    outcome = evaluate_show(state, cfg.taste, datetime.now(UTC))
+
+    typer.echo(f"show_id:              {state.show_id}")
+    typer.echo(f"episodes_finished:    {state.episodes_finished}")
+    typer.echo(f"episodes_abandoned:   {state.episodes_abandoned}")
+    typer.echo(f"episodes_available:   {state.episodes_available}")
+    typer.echo(f"started_at:           {state.started_at.isoformat()}")
+    last = state.last_playback_at.isoformat() if state.last_playback_at else "-"
+    typer.echo(f"last_playback_at:     {last}")
+    emitted = state.last_emitted_event.value if state.last_emitted_event else "-"
+    typer.echo(f"last_emitted_event:   {emitted}")
+    if rating is not None:
+        typer.echo(f"latest_rating:        {rating.kind.value} ({rating.strength:.2f})")
+    else:
+        typer.echo("latest_rating:        -")
+    typer.echo(f"next_action:          {outcome.action}")
+    typer.echo(f"reason:               {outcome.reason}")
+
+
 # --- profile ---
 profile_app = typer.Typer(no_args_is_help=True, help="Taste profile management.")
 app.add_typer(profile_app, name="profile")

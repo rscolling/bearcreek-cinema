@@ -98,6 +98,17 @@ class LlmConfig(BaseModel):
     claude: LlmClaudeConfig = Field(default_factory=LlmClaudeConfig)
 
 
+class TasteConfig(BaseModel):
+    binge_positive_completion_pct: float = Field(default=0.75, ge=0.0, le=1.0)
+    binge_positive_window_days: PositiveInt = 60
+    binge_positive_strength: float = Field(default=0.8, ge=0.0, le=1.0)
+    binge_negative_max_episodes: PositiveInt = 2
+    binge_negative_inactivity_days: PositiveInt = 30
+    binge_negative_strength: float = Field(default=0.7, ge=0.0, le=1.0)
+    season_complete_min_episodes: PositiveInt = 4
+    aggregate_interval_minutes: PositiveInt = 15
+
+
 class LibrarianTvConfig(BaseModel):
     sampler_episode_count: PositiveInt = 3
     promote_after_n_finished: PositiveInt = 2
@@ -130,6 +141,7 @@ class Config(BaseModel):
     tmdb: TmdbConfig
     llm: LlmConfig = Field(default_factory=LlmConfig)
     librarian: LibrarianConfig = Field(default_factory=LibrarianConfig)
+    taste: TasteConfig = Field(default_factory=TasteConfig)
     api: ApiConfig = Field(default_factory=ApiConfig)
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
 
