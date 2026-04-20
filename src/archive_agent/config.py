@@ -132,6 +132,12 @@ class LibrarianConfig(BaseModel):
     tv: LibrarianTvConfig = Field(default_factory=LibrarianTvConfig)
 
 
+class RecommendConfig(BaseModel):
+    default_n: PositiveInt = 5
+    prefilter_k: PositiveInt = 50
+    exclude_window_days: PositiveInt = 14
+
+
 class ApiConfig(BaseModel):
     host: str = "0.0.0.0"
     port: PositiveInt = 8787
@@ -150,6 +156,7 @@ class Config(BaseModel):
     llm: LlmConfig = Field(default_factory=LlmConfig)
     librarian: LibrarianConfig = Field(default_factory=LibrarianConfig)
     taste: TasteConfig = Field(default_factory=TasteConfig)
+    recommend: RecommendConfig = Field(default_factory=RecommendConfig)
     api: ApiConfig = Field(default_factory=ApiConfig)
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
 

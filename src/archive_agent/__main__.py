@@ -283,12 +283,98 @@ def download(
 # --- recommend ---
 @app.command()
 def recommend(
+    n: int = typer.Option(0, "--n", help="Shortlist size (0 = use config default)"),
     kind: str = typer.Option("any", "--type", help="movie | show | any"),
-    n: int = typer.Option(5, "--n", help="Shortlist size"),
-    provider: str = typer.Option("ollama", "--provider", help="ollama | claude | tfidf"),
+    provider: str = typer.Option(
+        "", "--provider", help="ollama | claude | tfidf (blank = config)"
+    ),
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="Don't insert into ranked_candidates"
+    ),
+    json_output: bool = typer.Option(False, "--json", help="Machine-readable output"),
 ) -> None:
-    """Produce the nightly shortlist of ranked candidates."""
-    _not_implemented("recommend")
+    """Produce a shortlist of ranked candidates (two-stage pipeline)."""
+    import asyncio
+
+    from archive_agent.commands.recommend import (
+        NoProfileError,
+        RecommendResult,
+    )
+    from archive_agent.commands.recommend import recommend as _run_recommend
+    from archive_agent.config import ConfigError, load_config
+    from archive_agent.state.db import get_db, init_db
+    from archive_agent.state.models import ContentType
+
+    try:
+        cfg = load_config()
+    except ConfigError as exc:
+        typer.echo(f"ERROR: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+
+    if kind not in {"movie", "show", "any"}:
+        typer.echo(f"invalid --type={kind!r}", err=True)
+        raise typer.Exit(code=1)
+    content_types: list[ContentType] | None = None
+    if kind == "movie":
+        content_types = [ContentType.MOVIE]
+    elif kind == "show":
+        content_types = [ContentType.SHOW]
+
+    force_provider: str | None = None
+    if provider:
+        if provider not in {"ollama", "claude", "tfidf"}:
+            typer.echo(f"invalid --provider={provider!r}", err=True)
+            raise typer.Exit(code=1)
+        force_provider = provider
+
+    init_db(cfg.paths.state_db)
+    conn = get_db()
+
+    async def _run() -> RecommendResult:
+        return await _run_recommend(
+            conn,
+            cfg,
+            n=n or None,
+            content_types=content_types,
+            force_provider=force_provider,  # type: ignore[arg-type]
+            dry_run=dry_run,
+        )
+
+    try:
+        result = asyncio.run(_run())
+    except NoProfileError as exc:
+        typer.echo(f"ERROR: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+
+    if json_output:
+        typer.echo(result.model_dump_json(indent=2))
+        return
+
+    if not result.items:
+        typer.echo(
+            f"No picks (provider={result.provider}, "
+            f"prefilter={result.prefilter_size}, "
+            f"excluded={result.excluded_count})."
+        )
+        return
+
+    typer.echo(
+        f"Provider: {result.provider}  "
+        f"profile_version={result.profile_version}  "
+        f"elapsed={result.elapsed_ms}ms  "
+        f"batch={result.batch_id or '-'}"
+    )
+    typer.echo("")
+    typer.echo(f"{'#':>3}  {'score':>5}  {'type':<6} {'year':<5}  title")
+    typer.echo("-" * 80)
+    for r in result.items:
+        year = str(r.candidate.year) if r.candidate.year else "????"
+        typer.echo(
+            f"{r.rank:>3}  {r.score:>5.2f}  "
+            f"{r.candidate.content_type.value:<6} {year:<5}  "
+            f"{r.candidate.title[:55]}"
+        )
+        typer.echo(f"       {r.reasoning}")
 
 
 # --- taste (show-state aggregator + rating reader) ---

@@ -50,7 +50,7 @@ ephemeral content; TV sampler flow works for one show.
 - [x] `phase3-05-profile-update.md` — incremental profile updates
 - [ ] `phase3-06-tfidf-provider.md` — TFIDFProvider full implementation
 - [ ] `phase3-07-claude-rank.md` — ClaudeProvider full implementation
-- [ ] `phase3-08-recommend-command.md` — `archive-agent recommend` wires
+- [x] `phase3-08-recommend-command.md` — `archive-agent recommend` wires
   it all together
 - [ ] `phase3-09-fts5-indexing.md` — SQLite FTS5 virtual table + triggers
   for catalog title/description search with trigram tokenizer
