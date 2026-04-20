@@ -138,9 +138,7 @@ async def test_health_check_without_api_key_does_not_log(
     assert db.execute("SELECT COUNT(*) FROM llm_calls").fetchone()[0] == 0
 
 
-async def test_rank_without_api_key_falls_back(
-    config: Config, db: sqlite3.Connection
-) -> None:
+async def test_rank_without_api_key_falls_back(config: Config, db: sqlite3.Connection) -> None:
     config.llm.claude = LlmClaudeConfig(api_key=None)
     provider = ClaudeProvider(config.llm.claude, conn=db)
     candidates = [_candidate(f"m{i}") for i in range(3)]
@@ -210,15 +208,11 @@ async def test_rank_validation_error_falls_back(
 
     assert len(ranked) == 3
     assert all(r.reasoning == "Fallback: similarity match." for r in ranked)
-    row = db.execute(
-        "SELECT outcome FROM llm_calls ORDER BY id DESC LIMIT 1"
-    ).fetchone()
+    row = db.execute("SELECT outcome FROM llm_calls ORDER BY id DESC LIMIT 1").fetchone()
     assert row["outcome"] == "malformed"
 
 
-async def test_rank_empty_candidates_returns_empty(
-    config: Config, db: sqlite3.Connection
-) -> None:
+async def test_rank_empty_candidates_returns_empty(config: Config, db: sqlite3.Connection) -> None:
     claude_cfg = _with_key(config)
     provider = ClaudeProvider(claude_cfg, conn=db)
     assert await provider.rank(_profile(), [], n=5) == []
@@ -287,9 +281,7 @@ async def test_update_profile_failure_returns_bumped_current(
 
     assert result.version == 6
     assert result.summary == "keeper"
-    row = db.execute(
-        "SELECT outcome FROM llm_calls ORDER BY id DESC LIMIT 1"
-    ).fetchone()
+    row = db.execute("SELECT outcome FROM llm_calls ORDER BY id DESC LIMIT 1").fetchone()
     assert row["outcome"] == "error"
 
 

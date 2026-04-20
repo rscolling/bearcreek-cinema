@@ -103,9 +103,7 @@ def test_load_rejects_foreign_pickle(tmp_path: Path) -> None:
         TFIDFIndex.load(path)
 
 
-def test_load_or_build_falls_back_on_corrupt_pickle(
-    db: sqlite3.Connection, tmp_path: Path
-) -> None:
+def test_load_or_build_falls_back_on_corrupt_pickle(db: sqlite3.Connection, tmp_path: Path) -> None:
     _seed_db(db, n=4)
     path = tmp_path / "corrupt.pkl"
     path.write_bytes(b"not a pickle at all")
@@ -114,9 +112,7 @@ def test_load_or_build_falls_back_on_corrupt_pickle(
     assert index.size == 4
 
 
-def test_load_or_build_uses_cache_when_present(
-    db: sqlite3.Connection, tmp_path: Path
-) -> None:
+def test_load_or_build_uses_cache_when_present(db: sqlite3.Connection, tmp_path: Path) -> None:
     _seed_db(db, n=3)
     built = TFIDFIndex.build(db)
     path = tmp_path / "cache.pkl"

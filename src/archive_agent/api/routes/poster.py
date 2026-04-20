@@ -133,9 +133,7 @@ async def _fetch_upstream(url: str, timeout: float) -> tuple[bytes, str | None]:
         return resp.content, resp.headers.get("content-type")
 
 
-def _write_atomic(
-    config: Config, archive_id: str, body: bytes, ext: str
-) -> Path:
+def _write_atomic(config: Config, archive_id: str, body: bytes, ext: str) -> Path:
     """Write-then-rename so a crashed transfer doesn't leave a
     truncated file for the next reader."""
     cache_dir = _cache_dir(config)
@@ -164,13 +162,9 @@ async def get_poster(
 
     cand = q_candidates.get_by_archive_id(conn, archive_id)
     if cand is None:
-        raise HTTPException(
-            status_code=404, detail=f"no candidate {archive_id!r}"
-        )
+        raise HTTPException(status_code=404, detail=f"no candidate {archive_id!r}")
     if cand.poster_url is None:
-        raise HTTPException(
-            status_code=404, detail="no poster_url for this candidate"
-        )
+        raise HTTPException(status_code=404, detail="no poster_url for this candidate")
 
     try:
         body, content_type = await _fetch_upstream(

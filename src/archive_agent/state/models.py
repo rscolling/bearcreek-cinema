@@ -67,9 +67,9 @@ class TasteEventKind(StrEnum):
     # Explicit 3-thumb show ratings — see ADR-013. Always
     # content_type=SHOW, source="roku_api". Latest thumb per show wins;
     # history is kept append-only for audit.
-    RATED_DOWN = "rated_down"     # strength 0.9 — strong negative
-    RATED_UP = "rated_up"         # strength 0.6
-    RATED_LOVE = "rated_love"     # strength 1.0 — max positive
+    RATED_DOWN = "rated_down"  # strength 0.9 — strong negative
+    RATED_UP = "rated_up"  # strength 0.6
+    RATED_LOVE = "rated_love"  # strength 1.0 — max positive
 
 
 class TasteEvent(BaseModel):

@@ -105,9 +105,7 @@ class FallbackProvider:
 
     def __init__(self, *, primary: LLMProvider, fallback: LLMProvider) -> None:
         if fallback.name != "tfidf":
-            raise ValueError(
-                f"FallbackProvider requires tfidf as fallback, got {fallback.name!r}"
-            )
+            raise ValueError(f"FallbackProvider requires tfidf as fallback, got {fallback.name!r}")
         self._primary = primary
         self._fallback = fallback
         self.name = primary.name  # Surface the primary to audit rows.
@@ -133,9 +131,7 @@ class FallbackProvider:
             _log_fallback("rank", self._primary.name, str(exc))
             return await self._fallback.rank(profile, candidates, n, ratings=ratings)
 
-    async def update_profile(
-        self, current: TasteProfile, events: list[TasteEvent]
-    ) -> TasteProfile:
+    async def update_profile(self, current: TasteProfile, events: list[TasteEvent]) -> TasteProfile:
         try:
             return await self._primary.update_profile(current, events)
         except Exception as exc:

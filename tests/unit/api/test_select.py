@@ -64,9 +64,7 @@ def _patch_pipeline(
             size_bytes=0,
         )
 
-    async def _resolve(
-        config: Any, archive_id: str, zone: Any, conn: Any
-    ) -> str | None:
+    async def _resolve(config: Any, archive_id: str, zone: Any, conn: Any) -> str | None:
         return resolved_item_id
 
     async def _step_show(
@@ -122,7 +120,9 @@ def test_select_failed_returns_502(app: FastAPI, monkeypatch: pytest.MonkeyPatch
     assert resp.status_code == 502
 
 
-def test_select_unknown_candidate_returns_404(app: FastAPI, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_select_unknown_candidate_returns_404(
+    app: FastAPI, monkeypatch: pytest.MonkeyPatch
+) -> None:
     _patch_pipeline(monkeypatch)
     with TestClient(app) as client:
         resp = client.post("/recommendations/nope/select", json={"play": True})
@@ -142,9 +142,7 @@ def test_select_accepts_empty_body(app: FastAPI, monkeypatch: pytest.MonkeyPatch
 # --- /shows/{id}/commit ----------------------------------------------------
 
 
-def test_commit_returns_202_with_estimates(
-    app: FastAPI, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_commit_returns_202_with_estimates(app: FastAPI, monkeypatch: pytest.MonkeyPatch) -> None:
     _patch_pipeline(monkeypatch)
     with TestClient(app) as client:
         db: sqlite3.Connection = app.state.db
@@ -169,9 +167,7 @@ def test_commit_returns_202_with_estimates(
     assert body["estimated_gb"] == pytest.approx(4.5)
 
 
-def test_commit_unknown_show_returns_404(
-    app: FastAPI, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_commit_unknown_show_returns_404(app: FastAPI, monkeypatch: pytest.MonkeyPatch) -> None:
     _patch_pipeline(monkeypatch)
     with TestClient(app) as client:
         resp = client.post("/shows/nothing/commit")

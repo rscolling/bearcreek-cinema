@@ -88,9 +88,7 @@ def evaluate_show(
     if pct >= config.binge_positive_completion_pct:
         if state.last_playback_at is None:
             # Can't score without recent-ish playback evidence.
-            return BingeOutcome(
-                show_id=show_id, action="skip", reason="no last_playback_at"
-            )
+            return BingeOutcome(show_id=show_id, action="skip", reason="no last_playback_at")
         binge_span_days = (state.last_playback_at - state.started_at).days
         if binge_span_days <= config.binge_positive_window_days:
             if state.last_emitted_event == TasteEventKind.BINGE_POSITIVE:
@@ -113,9 +111,7 @@ def evaluate_show(
     # Negative: watched very little and went quiet past the inactivity window.
     if state.episodes_finished <= config.binge_negative_max_episodes:
         if state.last_playback_at is None:
-            return BingeOutcome(
-                show_id=show_id, action="skip", reason="no last_playback_at"
-            )
+            return BingeOutcome(show_id=show_id, action="skip", reason="no last_playback_at")
         inactivity_days = (now - state.last_playback_at).days
         if inactivity_days >= config.binge_negative_inactivity_days:
             if state.last_emitted_event == TasteEventKind.BINGE_NEGATIVE:
@@ -157,9 +153,7 @@ def _positive_outcome(
         strength=config.binge_positive_strength,
         source="playback",
     )
-    return BingeOutcome(
-        show_id=state.show_id, action="emit_positive", reason=reason, event=event
-    )
+    return BingeOutcome(show_id=state.show_id, action="emit_positive", reason=reason, event=event)
 
 
 def _negative_outcome(
@@ -173,9 +167,7 @@ def _negative_outcome(
         strength=config.binge_negative_strength,
         source="playback",
     )
-    return BingeOutcome(
-        show_id=state.show_id, action="emit_negative", reason=reason, event=event
-    )
+    return BingeOutcome(show_id=state.show_id, action="emit_negative", reason=reason, event=event)
 
 
 def refresh_show_state(conn: sqlite3.Connection, show_id: str) -> ShowState | None:
@@ -238,9 +230,7 @@ def refresh_show_state(conn: sqlite3.Connection, show_id: str) -> ShowState | No
         # today as started_at so future runs can measure the window.
         started_at = datetime.now(UTC)
 
-    last_playback = (
-        datetime.fromisoformat(last_playback_iso) if last_playback_iso else None
-    )
+    last_playback = datetime.fromisoformat(last_playback_iso) if last_playback_iso else None
 
     new_state = ShowState(
         show_id=show_id,

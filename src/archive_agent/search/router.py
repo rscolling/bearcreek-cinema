@@ -49,6 +49,7 @@ class QueryRouteResult(BaseModel):
 # the query is a strong title match (caller defines "strong").
 FtsProbeFn = Callable[[str], bool]
 
+
 # Optional LLM classifier seam. Real implementation lands in a
 # follow-up card — the call signature mirrors ``RoutingDecision``
 # from phase4-08's spec. ``None`` (the default) means "skip the LLM
@@ -151,11 +152,7 @@ async def route_query(
 
     # Short, alphanumeric-only queries look like titles. Give FTS a
     # first look before escalating.
-    if (
-        _short_alphanumeric_title(normalized)
-        and fts_probe is not None
-        and fts_probe(normalized)
-    ):
+    if _short_alphanumeric_title(normalized) and fts_probe is not None and fts_probe(normalized):
         return QueryRouteResult(
             intent=QueryIntent.TITLE,
             normalized_query=normalized,

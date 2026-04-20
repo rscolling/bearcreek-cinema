@@ -142,12 +142,13 @@ def gather_bootstrap_input(conn: sqlite3.Connection) -> BootstrapInput:
         # episode rows. Pull one representative episode row to surface
         # the show's title/genres in the prompt.
         ep_row = conn.execute(
-            "SELECT * FROM candidates WHERE show_id = ? "
-            "AND content_type = 'episode' LIMIT 1",
+            "SELECT * FROM candidates WHERE show_id = ? AND content_type = 'episode' LIMIT 1",
             (cid,),
         ).fetchone()
         if ep_row is not None:
-            candidates_by_id[cid] = q_candidates.get_by_archive_id(conn, ep_row["archive_id"]) or cand  # type: ignore[assignment]
+            resolved = q_candidates.get_by_archive_id(conn, ep_row["archive_id"])
+            if resolved is not None:
+                candidates_by_id[cid] = resolved
 
     return BootstrapInput(
         movie_events=movie_events,
@@ -174,8 +175,7 @@ async def bootstrap_profile(
     existing = q_profiles.get_latest_profile(conn)
     if existing is not None and not force:
         raise ProfileExistsError(
-            f"profile version {existing.version} already exists; "
-            "use --force to replace it"
+            f"profile version {existing.version} already exists; use --force to replace it"
         )
 
     inp = gather_bootstrap_input(conn)

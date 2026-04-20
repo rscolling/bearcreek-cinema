@@ -52,8 +52,7 @@ def latest_batch(conn: sqlite3.Connection) -> list[RankedCandidate]:
     Entries whose candidate has since been deleted are silently dropped.
     """
     row = conn.execute(
-        "SELECT batch_id FROM ranked_candidates "
-        "ORDER BY created_at DESC, id DESC LIMIT 1"
+        "SELECT batch_id FROM ranked_candidates ORDER BY created_at DESC, id DESC LIMIT 1"
     ).fetchone()
     if row is None:
         return []
@@ -81,15 +80,12 @@ def latest_batch(conn: sqlite3.Connection) -> list[RankedCandidate]:
     return picks
 
 
-def recent_archive_ids(
-    conn: sqlite3.Connection, since: datetime
-) -> set[str]:
+def recent_archive_ids(conn: sqlite3.Connection, since: datetime) -> set[str]:
     """Archive IDs recommended on or after ``since``. Used by the
     ``exclude_window_days`` gate so fresh batches don't recycle picks.
     """
     rows = conn.execute(
-        "SELECT DISTINCT archive_id FROM ranked_candidates "
-        "WHERE created_at >= ?",
+        "SELECT DISTINCT archive_id FROM ranked_candidates WHERE created_at >= ?",
         (since.isoformat(),),
     ).fetchall()
     return {r["archive_id"] for r in rows}

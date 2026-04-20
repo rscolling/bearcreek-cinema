@@ -33,7 +33,6 @@ def test_lifespan_wires_state(app: FastAPI) -> None:
         assert app.state.provider is not None
         # DB should have migrations applied — schema_version table exists.
         cur = app.state.db.execute(
-            "SELECT name FROM sqlite_master "
-            "WHERE type='table' AND name='schema_version'"
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='schema_version'"
         )
         assert cur.fetchone() is not None

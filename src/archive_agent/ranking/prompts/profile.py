@@ -50,9 +50,7 @@ def _event_label(event: TasteEvent) -> str:
     return event.kind.value
 
 
-def _title_for_event(
-    event: TasteEvent, candidates_by_id: dict[str, Candidate]
-) -> str:
+def _title_for_event(event: TasteEvent, candidates_by_id: dict[str, Candidate]) -> str:
     if event.archive_id is not None:
         cand = candidates_by_id.get(event.archive_id)
         if cand is not None:
@@ -69,9 +67,7 @@ def _title_for_event(
     return "(unknown)"
 
 
-def _render_events(
-    events: list[TasteEvent], candidates_by_id: dict[str, Candidate]
-) -> str:
+def _render_events(events: list[TasteEvent], candidates_by_id: dict[str, Candidate]) -> str:
     if not events:
         return "(no events)"
     # Group by kind so the prompt is compact even for large histories.
@@ -95,9 +91,7 @@ def _render_events(
     return "\n".join(lines)
 
 
-def _render_ratings(
-    ratings: dict[str, TasteEvent], candidates_by_id: dict[str, Candidate]
-) -> str:
+def _render_ratings(ratings: dict[str, TasteEvent], candidates_by_id: dict[str, Candidate]) -> str:
     if not ratings:
         return "(no explicit ratings)"
     lines = []

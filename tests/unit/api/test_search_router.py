@@ -113,18 +113,14 @@ def test_descriptive_query_dispatches_to_tfidf(app: FastAPI) -> None:
     ids = [i["archive_id"] for i in body["items"]]
     assert any(aid in {"third_man", "noir_detour"} for aid in ids)
     # match_reason carries the genre overlap explicitly when found.
-    assert any(
-        i["match_reason"].startswith("matches") for i in body["items"]
-    )
+    assert any(i["match_reason"].startswith("matches") for i in body["items"])
 
 
 def test_descriptive_short_documentary(app: FastAPI) -> None:
     """Multi-term descriptive query lands on the descriptive pipeline."""
     with TestClient(app) as client:
         _seed(app.state.db)
-        resp = client.post(
-            "/search", json={"query": "short documentary", "limit": 5}
-        )
+        resp = client.post("/search", json={"query": "short documentary", "limit": 5})
     body = resp.json()
     assert body["intent"] == "descriptive"
     ids = [i["archive_id"] for i in body["items"]]
@@ -137,9 +133,7 @@ def test_descriptive_short_documentary(app: FastAPI) -> None:
 def test_more_like_resolves_anchor_and_runs_similar(app: FastAPI) -> None:
     with TestClient(app) as client:
         _seed(app.state.db)
-        resp = client.post(
-            "/search", json={"query": "more like the third man", "limit": 5}
-        )
+        resp = client.post("/search", json={"query": "more like the third man", "limit": 5})
     body = resp.json()
     assert body["intent"] == "descriptive"
     assert body["items"], body
@@ -166,9 +160,7 @@ def test_more_like_with_unresolvable_anchor_returns_empty(app: FastAPI) -> None:
 def test_play_command_strips_verb_and_runs_title_match(app: FastAPI) -> None:
     with TestClient(app) as client:
         _seed(app.state.db)
-        resp = client.post(
-            "/search", json={"query": "play The Third Man", "limit": 5}
-        )
+        resp = client.post("/search", json={"query": "play The Third Man", "limit": 5})
     body = resp.json()
     assert body["intent"] == "play"
     ids = [i["archive_id"] for i in body["items"]]

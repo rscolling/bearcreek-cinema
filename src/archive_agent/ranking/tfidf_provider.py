@@ -51,9 +51,27 @@ _RATING_DOWN_PENALTY = 0.5
 # not trying to match scikit-learn's list.
 _SEARCH_STOPWORDS = frozenset(
     {
-        "a", "an", "the", "and", "or", "of", "on", "in", "at",
-        "with", "for", "to", "from", "by", "like", "me", "i",
-        "something", "anything", "find", "please",
+        "a",
+        "an",
+        "the",
+        "and",
+        "or",
+        "of",
+        "on",
+        "in",
+        "at",
+        "with",
+        "for",
+        "to",
+        "from",
+        "by",
+        "like",
+        "me",
+        "i",
+        "something",
+        "anything",
+        "find",
+        "please",
     }
 )
 
@@ -150,16 +168,12 @@ class TFIDFProvider:
         events: list[TasteEvent],
     ) -> TasteProfile:
         """Deterministic merge. Version bumps, summary is templated."""
-        async with audit_llm_call(
-            "tfidf", _MODEL_NAME, "update_profile", conn=self._conn
-        ):
+        async with audit_llm_call("tfidf", _MODEL_NAME, "update_profile", conn=self._conn):
             return _deterministic_update(current, events, conn=self._conn)
 
     async def parse_search(self, query: str) -> SearchFilter:
         """Coarse keyword extraction — no NL, no LLM."""
-        async with audit_llm_call(
-            "tfidf", _MODEL_NAME, "parse_search", conn=self._conn
-        ):
+        async with audit_llm_call("tfidf", _MODEL_NAME, "parse_search", conn=self._conn):
             return _parse_search_keywords(query)
 
 
@@ -288,8 +302,8 @@ def _deterministic_update(
             if event.kind in {TasteEventKind.FINISHED, TasteEventKind.REWATCHED} and cand.year:
                 decade = (cand.year // 10) * 10
                 decade_tally[decade] = decade_tally.get(decade, 0) + 1
-            target_tally = liked_genre_tally if positive else (
-                disliked_genre_tally if negative else None
+            target_tally = (
+                liked_genre_tally if positive else (disliked_genre_tally if negative else None)
             )
             if target_tally is not None:
                 for g in cand.genres:
@@ -325,9 +339,7 @@ def _deterministic_update(
     )
 
 
-def _lookup_candidate(
-    conn: sqlite3.Connection | None, event: TasteEvent
-) -> Candidate | None:
+def _lookup_candidate(conn: sqlite3.Connection | None, event: TasteEvent) -> Candidate | None:
     if conn is None:
         return None
     from archive_agent.state.queries import candidates as q_candidates

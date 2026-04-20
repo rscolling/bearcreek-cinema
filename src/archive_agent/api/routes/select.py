@@ -38,13 +38,9 @@ async def select_recommendation(
 ) -> Response:
     req = body or SelectRequest()
     try:
-        result: SelectResult = await select_candidate(
-            conn, config, archive_id, play=req.play
-        )
+        result: SelectResult = await select_candidate(conn, config, archive_id, play=req.play)
     except CandidateNotFoundError as exc:
-        raise HTTPException(
-            status_code=404, detail=f"no candidate {exc.args[0]!r}"
-        ) from exc
+        raise HTTPException(status_code=404, detail=f"no candidate {exc.args[0]!r}") from exc
     if result.status == "failed":
         raise HTTPException(status_code=502, detail=result.detail)
     status_code = 200 if result.status == "ready" else 202

@@ -285,12 +285,8 @@ def download(
 def recommend(
     n: int = typer.Option(0, "--n", help="Shortlist size (0 = use config default)"),
     kind: str = typer.Option("any", "--type", help="movie | show | any"),
-    provider: str = typer.Option(
-        "", "--provider", help="ollama | claude | tfidf (blank = config)"
-    ),
-    dry_run: bool = typer.Option(
-        False, "--dry-run", help="Don't insert into ranked_candidates"
-    ),
+    provider: str = typer.Option("", "--provider", help="ollama | claude | tfidf (blank = config)"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Don't insert into ranked_candidates"),
     json_output: bool = typer.Option(False, "--json", help="Machine-readable output"),
 ) -> None:
     """Produce a shortlist of ranked candidates (two-stage pipeline)."""
@@ -489,9 +485,7 @@ def taste_bootstrap(
         False, "--dry-run", help="Generate the profile without inserting it"
     ),
     yes: bool = typer.Option(False, "--yes", "-y", help="Skip y/N confirmation"),
-    force: bool = typer.Option(
-        False, "--force", help="Insert a new version even if one exists"
-    ),
+    force: bool = typer.Option(False, "--force", help="Insert a new version even if one exists"),
 ) -> None:
     """Synthesize the first TasteProfile from existing watch history."""
     import asyncio
@@ -645,14 +639,16 @@ def taste_show_profile() -> None:
     typer.echo(f"liked_genres:     {', '.join(profile.liked_genres) or '-'}")
     typer.echo(f"disliked_genres:  {', '.join(profile.disliked_genres) or '-'}")
     if profile.era_preferences:
-        eras = ", ".join(
-            f"{e.decade}s({e.weight:+.1f})" for e in profile.era_preferences
-        )
+        eras = ", ".join(f"{e.decade}s({e.weight:+.1f})" for e in profile.era_preferences)
         typer.echo(f"era_preferences:  {eras}")
-    typer.echo(f"liked_ids:        {len(profile.liked_archive_ids)} movies / "
-               f"{len(profile.liked_show_ids)} shows")
-    typer.echo(f"disliked_ids:     {len(profile.disliked_archive_ids)} movies / "
-               f"{len(profile.disliked_show_ids)} shows")
+    typer.echo(
+        f"liked_ids:        {len(profile.liked_archive_ids)} movies / "
+        f"{len(profile.liked_show_ids)} shows"
+    )
+    typer.echo(
+        f"disliked_ids:     {len(profile.disliked_archive_ids)} movies / "
+        f"{len(profile.disliked_show_ids)} shows"
+    )
 
 
 @taste_app.command("show")
@@ -809,8 +805,7 @@ def rank_ollama(
         cand = r.candidate
         year = str(cand.year) if cand.year else "????"
         typer.echo(
-            f"  #{r.rank}  {r.score:.2f}  {cand.content_type.value:<7} {year}  "
-            f"{cand.title[:55]}"
+            f"  #{r.rank}  {r.score:.2f}  {cand.content_type.value:<7} {year}  {cand.title[:55]}"
         )
         typer.echo(f"        {r.reasoning}")
 
@@ -889,8 +884,7 @@ def rank_claude(
         cand = r.candidate
         year = str(cand.year) if cand.year else "????"
         typer.echo(
-            f"  #{r.rank}  {r.score:.2f}  {cand.content_type.value:<7} {year}  "
-            f"{cand.title[:55]}"
+            f"  #{r.rank}  {r.score:.2f}  {cand.content_type.value:<7} {year}  {cand.title[:55]}"
         )
         typer.echo(f"        {r.reasoning}")
 
@@ -1359,9 +1353,7 @@ app.add_typer(llm_calls_app, name="llm-calls")
 
 @llm_calls_app.command("cost")
 def llm_calls_cost(
-    since: str = typer.Option(
-        "", "--since", help="YYYY-MM-DD lower bound (inclusive)"
-    ),
+    since: str = typer.Option("", "--since", help="YYYY-MM-DD lower bound (inclusive)"),
 ) -> None:
     """Sum Claude spend from ``llm_calls`` rows in the window."""
     from archive_agent.config import ConfigError, load_config
@@ -1376,10 +1368,7 @@ def llm_calls_cost(
     init_db(cfg.paths.state_db)
     conn = get_db()
 
-    sql = (
-        "SELECT model, input_tokens, output_tokens FROM llm_calls "
-        "WHERE provider = 'claude'"
-    )
+    sql = "SELECT model, input_tokens, output_tokens FROM llm_calls WHERE provider = 'claude'"
     params: tuple[object, ...] = ()
     if since:
         sql += " AND timestamp >= ?"
@@ -1389,12 +1378,8 @@ def llm_calls_cost(
     by_model: dict[str, dict[str, float]] = {}
     total_cents = 0.0
     for row in rows:
-        cents = estimate_cost_cents(
-            row["model"], row["input_tokens"], row["output_tokens"]
-        )
-        agg = by_model.setdefault(
-            row["model"], {"calls": 0, "input": 0, "output": 0, "cents": 0.0}
-        )
+        cents = estimate_cost_cents(row["model"], row["input_tokens"], row["output_tokens"])
+        agg = by_model.setdefault(row["model"], {"calls": 0, "input": 0, "output": 0, "cents": 0.0})
         agg["calls"] += 1
         agg["input"] += int(row["input_tokens"] or 0)
         agg["output"] += int(row["output_tokens"] or 0)

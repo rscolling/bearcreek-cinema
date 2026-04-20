@@ -107,9 +107,7 @@ async def _request_logging_middleware(
         structlog.contextvars.clear_contextvars()
 
 
-async def _unhandled_exception_handler(
-    request: Request, exc: Exception
-) -> JSONResponse:
+async def _unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Return ``application/problem+json`` for anything that escapes a route.
 
     Deliberately doesn't include the traceback — the client is the

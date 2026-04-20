@@ -196,9 +196,7 @@ async def test_rating_injection_appears_in_prompt() -> None:
         source="roku_api",
     )
 
-    prompt = build_rank_prompt(
-        _profile(), [cand], n=1, ratings={"showA": fresh_rating}, now=_NOW
-    )
+    prompt = build_rank_prompt(_profile(), [cand], n=1, ratings={"showA": fresh_rating}, now=_NOW)
 
     # The LOVE glyph appears in the candidate block (and in instructions).
     # Candidate line is the only place "id=show_ep" appears, and the tag
@@ -223,17 +221,13 @@ async def test_old_ratings_are_not_injected() -> None:
         source="roku_api",
     )
 
-    prompt = build_rank_prompt(
-        _profile(), [cand], n=1, ratings={"showA": stale_rating}, now=_NOW
-    )
+    prompt = build_rank_prompt(_profile(), [cand], n=1, ratings={"showA": stale_rating}, now=_NOW)
 
     candidate_line = next(line for line in prompt.splitlines() if "id=show_ep" in line)
     assert "[rated:" not in candidate_line
 
 
-async def test_empty_candidates_returns_empty(
-    config: Config, db: sqlite3.Connection
-) -> None:
+async def test_empty_candidates_returns_empty(config: Config, db: sqlite3.Connection) -> None:
     provider = OllamaProvider(config.llm.ollama, conn=db)
     assert await provider.rank(_profile(), [], n=5) == []
 

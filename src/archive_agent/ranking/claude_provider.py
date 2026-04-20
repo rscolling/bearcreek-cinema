@@ -55,9 +55,7 @@ _CLAUDE_COSTS_PER_MTOK: dict[str, tuple[float, float]] = {
 }
 
 
-def estimate_cost_cents(
-    model: str, input_tokens: int | None, output_tokens: int | None
-) -> float:
+def estimate_cost_cents(model: str, input_tokens: int | None, output_tokens: int | None) -> float:
     """Cost in US cents. Returns 0.0 for unknown models or missing counts."""
     if input_tokens is None or output_tokens is None:
         return 0.0
@@ -114,9 +112,7 @@ class ClaudeProvider:
             "claude", self._config.model, "health_check", conn=self._conn
         ) as ctx:
             try:
-                client = anthropic.AsyncAnthropic(
-                    api_key=self._config.api_key.get_secret_value()
-                )
+                client = anthropic.AsyncAnthropic(api_key=self._config.api_key.get_secret_value())
                 resp = await client.messages.create(
                     model=self._config.model,
                     max_tokens=16,
@@ -173,9 +169,7 @@ class ClaudeProvider:
             _log.error("claude_rank_client_error", error=str(exc))
             return _fallback_ranking(candidates, n_requested)
 
-        async with audit_llm_call(
-            "claude", self._config.model, "rank", conn=self._conn
-        ) as ctx:
+        async with audit_llm_call("claude", self._config.model, "rank", conn=self._conn) as ctx:
             try:
                 resp, raw = await client.chat.completions.create_with_completion(
                     messages=[{"role": "user", "content": prompt}],
@@ -344,9 +338,7 @@ def _response_to_ranked(
     return picks
 
 
-def _fallback_ranking(
-    candidates: list[Candidate], n: int
-) -> list[RankedCandidate]:
+def _fallback_ranking(candidates: list[Candidate], n: int) -> list[RankedCandidate]:
     """Trivial prefilter-order ranking with templated reasoning."""
     return [
         RankedCandidate(

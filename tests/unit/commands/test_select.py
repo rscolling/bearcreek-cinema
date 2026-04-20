@@ -101,9 +101,7 @@ def _patch_pipeline(
             size_bytes=0,
         )
 
-    async def _resolve(
-        config: Any, archive_id: str, zone: Any, conn: Any
-    ) -> str | None:
+    async def _resolve(config: Any, archive_id: str, zone: Any, conn: Any) -> str | None:
         counts["scan"] += 1
         return resolved_item_id
 

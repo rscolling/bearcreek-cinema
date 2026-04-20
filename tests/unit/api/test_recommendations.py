@@ -48,7 +48,9 @@ def _candidate(
         "runtime_minutes": runtime,
         "genres": ["Noir"],
         "show_id": show_id,
-        "source_collection": "moviesandfilms" if content_type == ContentType.MOVIE else "television",
+        "source_collection": "moviesandfilms"
+        if content_type == ContentType.MOVIE
+        else "television",
         "discovered_at": _NOW,
         "jellyfin_item_id": jf_item_id,
     }
@@ -69,9 +71,7 @@ def _seed_batch(db: sqlite3.Connection, candidates: list[Candidate]) -> str:
     for c in candidates:
         q_candidates.upsert_candidate(db, c)
     picks = [_ranked(c, i + 1) for i, c in enumerate(candidates)]
-    q_ranked.insert_batch(
-        db, "batch1", picks, provider="ollama", profile_version=1, now=_NOW
-    )
+    q_ranked.insert_batch(db, "batch1", picks, provider="ollama", profile_version=1, now=_NOW)
     return "batch1"
 
 
@@ -258,8 +258,7 @@ def test_reject_writes_event_and_marks_candidate(app: FastAPI) -> None:
         assert resp.status_code == 204
 
         row = db.execute(
-            "SELECT kind, archive_id FROM taste_events "
-            "ORDER BY id DESC LIMIT 1"
+            "SELECT kind, archive_id FROM taste_events ORDER BY id DESC LIMIT 1"
         ).fetchone()
         assert row["kind"] == TasteEventKind.REJECTED.value
         assert row["archive_id"] == "rj1"
@@ -276,9 +275,7 @@ def test_defer_writes_event_without_changing_status(app: FastAPI) -> None:
         resp = client.post("/recommendations/df1/defer")
         assert resp.status_code == 204
 
-        row = db.execute(
-            "SELECT kind FROM taste_events ORDER BY id DESC LIMIT 1"
-        ).fetchone()
+        row = db.execute("SELECT kind FROM taste_events ORDER BY id DESC LIMIT 1").fetchone()
         assert row["kind"] == TasteEventKind.DEFERRED.value
         cand = q_candidates.get_by_archive_id(db, "df1")
         assert cand is not None

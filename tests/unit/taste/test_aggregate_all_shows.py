@@ -79,9 +79,7 @@ def test_positive_binge_emits_one_event(db: sqlite3.Connection, taste_config: Ta
     assert state.last_emitted_event.value == "binge_positive"
 
 
-def test_negative_emits_after_inactivity(
-    db: sqlite3.Connection, taste_config: TasteConfig
-) -> None:
+def test_negative_emits_after_inactivity(db: sqlite3.Connection, taste_config: TasteConfig) -> None:
     _seed_episodes(db, "showB", 10)
     now = datetime.now(UTC)
     # Watch 1 episode 60 days ago, nothing since.
@@ -128,9 +126,7 @@ def test_refresh_respects_finished_max_per_episode(db: sqlite3.Connection) -> No
     assert state.episodes_abandoned == 0
 
 
-def test_refresh_preserves_last_emitted(
-    db: sqlite3.Connection, taste_config: TasteConfig
-) -> None:
+def test_refresh_preserves_last_emitted(db: sqlite3.Connection, taste_config: TasteConfig) -> None:
     _seed_episodes(db, "showE", 8)
     now = datetime.now(UTC)
     for i in range(1, 7):

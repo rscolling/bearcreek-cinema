@@ -21,8 +21,7 @@ NAME = "fts5_candidates"
 def up(conn: sqlite3.Connection) -> None:
     if sqlite3.sqlite_version_info < (3, 34, 0):
         raise RuntimeError(
-            f"FTS5 trigram tokenizer requires SQLite 3.34+, got "
-            f"{sqlite3.sqlite_version}"
+            f"FTS5 trigram tokenizer requires SQLite 3.34+, got {sqlite3.sqlite_version}"
         )
     conn.executescript(
         """

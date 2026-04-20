@@ -11,9 +11,15 @@ from __future__ import annotations
 import re
 
 _ORDINAL_MAP = {
-    "1st": "first", "2nd": "second", "3rd": "third",
-    "4th": "fourth", "5th": "fifth", "6th": "sixth",
-    "7th": "seventh", "8th": "eighth", "9th": "ninth",
+    "1st": "first",
+    "2nd": "second",
+    "3rd": "third",
+    "4th": "fourth",
+    "5th": "fifth",
+    "6th": "sixth",
+    "7th": "seventh",
+    "8th": "eighth",
+    "9th": "ninth",
     "10th": "tenth",
 }
 
@@ -21,9 +27,18 @@ _ORDINAL_MAP = {
 # Twelve) and voice queries ("two fast cars"). Leave years and
 # larger numbers untouched.
 _NUMERAL_MAP = {
-    "1": "one", "2": "two", "3": "three", "4": "four",
-    "5": "five", "6": "six", "7": "seven", "8": "eight",
-    "9": "nine", "10": "ten", "11": "eleven", "12": "twelve",
+    "1": "one",
+    "2": "two",
+    "3": "three",
+    "4": "four",
+    "5": "five",
+    "6": "six",
+    "7": "seven",
+    "8": "eight",
+    "9": "nine",
+    "10": "ten",
+    "11": "eleven",
+    "12": "twelve",
 }
 
 _PUNCT_STRIP = re.compile(r"^[\s\W_]+|[\s\W_]+$")

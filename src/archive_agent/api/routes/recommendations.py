@@ -76,13 +76,9 @@ async def for_tonight(
 
     filtered: list[RecommendationItem]
     if is_evening():
-        filtered = [
-            i for i in all_items if (i.runtime_minutes or 0) >= 90
-        ] or all_items
+        filtered = [i for i in all_items if (i.runtime_minutes or 0) >= 90] or all_items
     elif is_late_night():
-        filtered = [
-            i for i in all_items if (i.runtime_minutes or 999) <= 60
-        ] or all_items
+        filtered = [i for i in all_items if (i.runtime_minutes or 999) <= 60] or all_items
     else:
         filtered = all_items
     return RecommendationsResponse(items=filtered[:3])
@@ -135,9 +131,7 @@ async def reject_recommendation(
     archive_id: str,
     conn: Annotated[sqlite3.Connection, Depends(get_db)],
 ) -> Response:
-    _insert_signal_event(
-        conn, archive_id, kind=TasteEventKind.REJECTED, strength=0.3
-    )
+    _insert_signal_event(conn, archive_id, kind=TasteEventKind.REJECTED, strength=0.3)
     # Terminal state for the candidate itself.
     q_candidates.update_status(conn, archive_id, CandidateStatus.REJECTED)
     return Response(status_code=204)
@@ -148,9 +142,7 @@ async def defer_recommendation(
     archive_id: str,
     conn: Annotated[sqlite3.Connection, Depends(get_db)],
 ) -> Response:
-    _insert_signal_event(
-        conn, archive_id, kind=TasteEventKind.DEFERRED, strength=0.2
-    )
+    _insert_signal_event(conn, archive_id, kind=TasteEventKind.DEFERRED, strength=0.2)
     # Leave candidate status unchanged — defer is a soft signal.
     return Response(status_code=204)
 

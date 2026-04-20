@@ -45,9 +45,7 @@ class _ExplodingProvider:
     ) -> list[RankedCandidate]:
         raise RuntimeError("rank blew up")
 
-    async def update_profile(
-        self, current: TasteProfile, events: list[TasteEvent]
-    ) -> TasteProfile:
+    async def update_profile(self, current: TasteProfile, events: list[TasteEvent]) -> TasteProfile:
         raise RuntimeError("update blew up")
 
     async def parse_search(self, query: str) -> SearchFilter:
@@ -78,9 +76,7 @@ class _WorkingProvider:
             for i, c in enumerate(candidates[:n])
         ]
 
-    async def update_profile(
-        self, current: TasteProfile, events: list[TasteEvent]
-    ) -> TasteProfile:
+    async def update_profile(self, current: TasteProfile, events: list[TasteEvent]) -> TasteProfile:
         return current.model_copy(update={"version": current.version + 1})
 
     async def parse_search(self, query: str) -> SearchFilter:

@@ -158,12 +158,8 @@ async def test_update_profile_tallies_genres_from_candidates(
     db: sqlite3.Connection,
 ) -> None:
     # Seed two finished movies — genres drive the tally.
-    q_candidates.upsert_candidate(
-        db, _candidate("m1", "Film 1", genres=["Noir", "Thriller"])
-    )
-    q_candidates.upsert_candidate(
-        db, _candidate("m2", "Film 2", genres=["Noir"])
-    )
+    q_candidates.upsert_candidate(db, _candidate("m1", "Film 1", genres=["Noir", "Thriller"]))
+    q_candidates.upsert_candidate(db, _candidate("m2", "Film 2", genres=["Noir"]))
     events = [
         TasteEvent(
             timestamp=_NOW,
@@ -182,9 +178,7 @@ async def test_update_profile_tallies_genres_from_candidates(
     ]
     provider = TFIDFProvider(conn=db)
 
-    updated = await provider.update_profile(
-        TasteProfile(version=0, updated_at=_NOW), events
-    )
+    updated = await provider.update_profile(TasteProfile(version=0, updated_at=_NOW), events)
 
     # Noir has 2 tallies, Thriller has 1 → Noir first.
     assert updated.liked_genres[0] == "Noir"
@@ -193,9 +187,7 @@ async def test_update_profile_tallies_genres_from_candidates(
 
 async def test_update_profile_runtime_percentile(db: sqlite3.Connection) -> None:
     for i, rt in enumerate([60, 90, 95, 100, 110, 120, 140]):
-        q_candidates.upsert_candidate(
-            db, _candidate(f"m{i}", f"Film {i}", runtime=rt)
-        )
+        q_candidates.upsert_candidate(db, _candidate(f"m{i}", f"Film {i}", runtime=rt))
     events = [
         TasteEvent(
             timestamp=_NOW,
@@ -208,9 +200,7 @@ async def test_update_profile_runtime_percentile(db: sqlite3.Connection) -> None
     ]
     provider = TFIDFProvider(conn=db)
 
-    updated = await provider.update_profile(
-        TasteProfile(version=0, updated_at=_NOW), events
-    )
+    updated = await provider.update_profile(TasteProfile(version=0, updated_at=_NOW), events)
 
     # 95th percentile of [60,90,95,100,110,120,140] — index 95*7//100=6 → 140.
     assert updated.runtime_tolerance_minutes == 140
@@ -218,9 +208,7 @@ async def test_update_profile_runtime_percentile(db: sqlite3.Connection) -> None
 
 async def test_update_profile_rated_down_forces_disliked(db: sqlite3.Connection) -> None:
     provider = TFIDFProvider(conn=db)
-    current = TasteProfile(
-        version=0, updated_at=_NOW, liked_show_ids=["showX"]
-    )
+    current = TasteProfile(version=0, updated_at=_NOW, liked_show_ids=["showX"])
     events = [
         TasteEvent(
             timestamp=_NOW,
@@ -296,16 +284,12 @@ async def test_parse_search_era_range() -> None:
 
 
 async def test_rank_logs_llm_call_row(db: sqlite3.Connection) -> None:
-    q_candidates.upsert_candidate(
-        db, _candidate("m1", "Film 1", genres=["Noir"])
-    )
+    q_candidates.upsert_candidate(db, _candidate("m1", "Film 1", genres=["Noir"]))
     provider = TFIDFProvider(conn=db)
 
     await provider.rank(_profile(liked_genres=["Noir"]), [_candidate("m1", "Film 1")], n=1)
 
-    row = db.execute(
-        "SELECT provider, workflow FROM llm_calls ORDER BY id DESC LIMIT 1"
-    ).fetchone()
+    row = db.execute("SELECT provider, workflow FROM llm_calls ORDER BY id DESC LIMIT 1").fetchone()
     assert row["provider"] == "tfidf"
     assert row["workflow"] == "rank"
 

@@ -50,9 +50,7 @@ def _poster_url(archive_id: str) -> str:
     return f"/poster/{archive_id}"
 
 
-def to_recommendation_item(
-    ranked: RankedCandidate, conn: sqlite3.Connection
-) -> RecommendationItem:
+def to_recommendation_item(ranked: RankedCandidate, conn: sqlite3.Connection) -> RecommendationItem:
     """Fold a ``RankedCandidate`` (possibly stale) + the latest DB row
     into the wire format.
 

@@ -16,8 +16,7 @@ from archive_agent.state.models import TasteProfile
 def get_latest_profile(conn: sqlite3.Connection) -> TasteProfile | None:
     """Return the newest ``TasteProfile``, or None if the table is empty."""
     row = conn.execute(
-        "SELECT profile_json FROM taste_profile_versions "
-        "ORDER BY version DESC LIMIT 1"
+        "SELECT profile_json FROM taste_profile_versions ORDER BY version DESC LIMIT 1"
     ).fetchone()
     if row is None:
         return None
@@ -37,17 +36,14 @@ def insert_profile(conn: sqlite3.Connection, profile: TasteProfile) -> int:
     next_version = int(row["v"]) + 1
     stored = profile.model_copy(update={"version": next_version})
     conn.execute(
-        "INSERT INTO taste_profile_versions (version, updated_at, profile_json) "
-        "VALUES (?, ?, ?)",
+        "INSERT INTO taste_profile_versions (version, updated_at, profile_json) VALUES (?, ?, ?)",
         (next_version, stored.updated_at.isoformat(), stored.model_dump_json()),
     )
     conn.commit()
     return next_version
 
 
-def list_versions(
-    conn: sqlite3.Connection, *, limit: int = 10
-) -> list[tuple[int, datetime, str]]:
+def list_versions(conn: sqlite3.Connection, *, limit: int = 10) -> list[tuple[int, datetime, str]]:
     """Return ``[(version, updated_at, summary_snippet)]`` most-recent first."""
     rows = conn.execute(
         "SELECT version, updated_at, profile_json FROM taste_profile_versions "

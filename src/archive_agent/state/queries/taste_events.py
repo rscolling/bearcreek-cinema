@@ -57,9 +57,7 @@ def list_since(conn: sqlite3.Connection, since: datetime) -> list[TasteEvent]:
 _RATING_KINDS_SQL = "('rated_down','rated_up','rated_love')"
 
 
-def latest_rating_for_show(
-    conn: sqlite3.Connection, show_id: str
-) -> TasteEvent | None:
+def latest_rating_for_show(conn: sqlite3.Connection, show_id: str) -> TasteEvent | None:
     """Newest ``roku_api``-sourced rating event for this show, or None.
 
     ADR-013 latest-wins semantics: the history is append-only, but the

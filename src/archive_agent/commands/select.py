@@ -114,9 +114,7 @@ async def _download_and_place(
         zone=zone,
         dest_dir=_staging_dir(config),
     )
-    dl = await download_one(
-        req, conn, max_concurrent=config.librarian.max_concurrent_downloads
-    )
+    dl = await download_one(req, conn, max_concurrent=config.librarian.max_concurrent_downloads)
     if dl.status not in {"done", "skipped"} or dl.file_path is None:
         return dl, None
     placement = place(
@@ -167,9 +165,7 @@ async def _select_movie(
     *,
     play: bool,
 ) -> SelectResult:
-    dl, _placed = await _download_and_place(
-        conn, config, candidate, zone=Zone.RECOMMENDATIONS
-    )
+    dl, _placed = await _download_and_place(conn, config, candidate, zone=Zone.RECOMMENDATIONS)
     if dl.status == "failed":
         _log.warning("select_download_failed", archive_id=candidate.archive_id, error=dl.error)
         return SelectResult(
@@ -191,9 +187,7 @@ async def _select_movie(
     # status transitions are owned by the librarian in other phases;
     # at minimum update its ``jellyfin_item_id`` via the status move
     # so /recommendations returns the right value next time.
-    q_candidates.update_status(
-        conn, candidate.archive_id, CandidateStatus.DOWNLOADED
-    )
+    q_candidates.update_status(conn, candidate.archive_id, CandidateStatus.DOWNLOADED)
     _log.info(
         "select_movie_ready",
         archive_id=candidate.archive_id,
@@ -213,9 +207,7 @@ async def _select_show(
     candidate: Candidate,
 ) -> SelectResult:
     show_id = candidate.show_id or candidate.archive_id
-    sampler: SamplerResult = await step_show(
-        conn, config, show_id, download_one
-    )
+    sampler: SamplerResult = await step_show(conn, config, show_id, download_one)
 
     # After the step, check whether any episode for this show has a
     # Jellyfin item id we can deep-link into. First finished-or-
@@ -268,9 +260,7 @@ async def commit_show(
     episodes = q_candidates.list_by_show(conn, show_id)
     episodes = [c for c in episodes if c.content_type == ContentType.EPISODE]
     if not episodes:
-        return CommitResult(
-            show_id=show_id, enqueued_downloads=0, estimated_gb=0.0
-        )
+        return CommitResult(show_id=show_id, enqueued_downloads=0, estimated_gb=0.0)
 
     size_bytes = sum(c.size_bytes or 0 for c in episodes)
 

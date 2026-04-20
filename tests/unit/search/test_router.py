@@ -36,9 +36,7 @@ def _always_probe(q: str) -> bool:
         ("put on Nosferatu", "Nosferatu"),
     ],
 )
-async def test_play_verbs_classified_as_play_command(
-    query: str, stripped: str
-) -> None:
+async def test_play_verbs_classified_as_play_command(query: str, stripped: str) -> None:
     result = await route_query(query)
     assert result.intent == QueryIntent.PLAY_COMMAND
     # Normalization lowercases, so stripped comes back lowercase too.
@@ -57,9 +55,7 @@ async def test_play_verbs_classified_as_play_command(
         ("something like noir classics", "noir classics"),
     ],
 )
-async def test_more_like_is_descriptive_with_anchor(
-    query: str, anchor: str
-) -> None:
+async def test_more_like_is_descriptive_with_anchor(query: str, anchor: str) -> None:
     result = await route_query(query)
     assert result.intent == QueryIntent.DESCRIPTIVE
     assert result.anchor_query == anchor
@@ -112,9 +108,7 @@ async def test_long_ambiguous_query_skips_probe() -> None:
         probe_calls.append(q)
         return True
 
-    result = await route_query(
-        "what should i watch this weekend", fts_probe=_probe
-    )
+    result = await route_query("what should i watch this weekend", fts_probe=_probe)
     assert probe_calls == []  # short-alpha check gated it
     # No descriptive terms either → default title.
     assert result.intent == QueryIntent.TITLE
@@ -125,13 +119,9 @@ async def test_long_ambiguous_query_skips_probe() -> None:
 
 async def test_llm_classifier_fills_unknowns() -> None:
     async def _classify(q: str) -> RoutingDecision:
-        return RoutingDecision(
-            intent=QueryIntent.UNKNOWN, reasoning="llm says unclear"
-        )
+        return RoutingDecision(intent=QueryIntent.UNKNOWN, reasoning="llm says unclear")
 
-    result = await route_query(
-        "ambiguous six word query here", llm_classify=_classify
-    )
+    result = await route_query("ambiguous six word query here", llm_classify=_classify)
     assert result.intent == QueryIntent.UNKNOWN
     assert result.reasoning == "llm says unclear"
 
@@ -171,7 +161,7 @@ async def test_whitespace_only_query_is_unknown() -> None:
 
 
 async def test_normalization_runs_before_heuristics() -> None:
-    """"3rd Man" → "third man", still matches default title path."""
+    """ "3rd Man" → "third man", still matches default title path."""
     result = await route_query("3rd Man")
     assert result.normalized_query == "third man"
 
@@ -180,7 +170,7 @@ async def test_normalization_runs_before_heuristics() -> None:
 
 
 async def test_more_like_beats_noir_term() -> None:
-    """"more like my favorite noir" should be more-like, not bare
+    """ "more like my favorite noir" should be more-like, not bare
     descriptive — anchor is preserved."""
     result = await route_query("more like my favorite noir")
     assert result.intent == QueryIntent.DESCRIPTIVE
@@ -188,7 +178,7 @@ async def test_more_like_beats_noir_term() -> None:
 
 
 async def test_play_verb_beats_descriptive_term() -> None:
-    """"play something funny" → PLAY_COMMAND with stripped query."""
+    """ "play something funny" → PLAY_COMMAND with stripped query."""
     result = await route_query("play something funny")
     assert result.intent == QueryIntent.PLAY_COMMAND
     assert result.stripped_query == "something funny"

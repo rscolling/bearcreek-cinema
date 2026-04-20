@@ -76,13 +76,9 @@ class _FakeProvider:
     async def rank(self, *a: Any, **k: Any) -> list[Any]:
         return []
 
-    async def update_profile(
-        self, current: TasteProfile, events: list[TasteEvent]
-    ) -> TasteProfile:
+    async def update_profile(self, current: TasteProfile, events: list[TasteEvent]) -> TasteProfile:
         self.captured_events = events
-        return self._returns.model_copy(
-            update={"version": current.version + 1, "updated_at": _NOW}
-        )
+        return self._returns.model_copy(update={"version": current.version + 1, "updated_at": _NOW})
 
     async def parse_search(self, query: str) -> SearchFilter:
         return SearchFilter()
@@ -186,9 +182,7 @@ async def test_apply_update_inserts_new_version(db: sqlite3.Connection) -> None:
             db, _movie_event(f"m{i}", TasteEventKind.FINISHED, at=_NOW - timedelta(hours=1))
         )
     plan = plan_update(db, TasteConfig(), now=_NOW)
-    provider = _FakeProvider(
-        returns=TasteProfile(version=1, updated_at=_NOW, summary="updated")
-    )
+    provider = _FakeProvider(returns=TasteProfile(version=1, updated_at=_NOW, summary="updated"))
 
     result = await apply_update(db, provider, plan)
 
@@ -217,9 +211,7 @@ async def test_apply_update_preserves_liked_ids(db: sqlite3.Connection) -> None:
 
     plan = plan_update(db, TasteConfig(), now=_NOW)
     # LLM drops all IDs
-    provider = _FakeProvider(
-        returns=TasteProfile(version=1, updated_at=_NOW, summary="fresh")
-    )
+    provider = _FakeProvider(returns=TasteProfile(version=1, updated_at=_NOW, summary="fresh"))
 
     result = await apply_update(db, provider, plan)
 

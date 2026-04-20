@@ -45,9 +45,7 @@ def preserve_ids(
       taste and ADR-013 requires them to stick.
     """
     liked_archive: set[str] = set(old.liked_archive_ids) | set(new.liked_archive_ids)
-    disliked_archive: set[str] = set(old.disliked_archive_ids) | set(
-        new.disliked_archive_ids
-    )
+    disliked_archive: set[str] = set(old.disliked_archive_ids) | set(new.disliked_archive_ids)
     liked_show: set[str] = set(old.liked_show_ids) | set(new.liked_show_ids)
     disliked_show: set[str] = set(old.disliked_show_ids) | set(new.disliked_show_ids)
 

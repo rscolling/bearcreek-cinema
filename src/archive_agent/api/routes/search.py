@@ -162,10 +162,7 @@ def _title_hits(
     if not cleaned:
         return []
     hits = q_search.fts_search(conn, cleaned, limit=limit, content_type=content_type)
-    return [
-        to_search_result_item(cand, score, match_reason=match_reason)
-        for cand, score in hits
-    ]
+    return [to_search_result_item(cand, score, match_reason=match_reason) for cand, score in hits]
 
 
 def _descriptive_hits(
@@ -226,9 +223,7 @@ def _fts_safe(s: str) -> str:
     return " ".join(tokens)
 
 
-def _resolve_anchor_archive_id(
-    conn: sqlite3.Connection, anchor_query: str
-) -> str | None:
+def _resolve_anchor_archive_id(conn: sqlite3.Connection, anchor_query: str) -> str | None:
     """FTS-resolve "more like X" to the best-matching archive_id.
 
     Returns ``None`` when there's no plausible title hit.
@@ -263,15 +258,10 @@ async def search(
     route = await route_query(req.query, fts_probe=_fts_probe)
 
     # Descriptive with anchor → resolve then run similar.
-    if (
-        route.intent == QueryIntent.DESCRIPTIVE
-        and route.anchor_query
-    ):
+    if route.intent == QueryIntent.DESCRIPTIVE and route.anchor_query:
         anchor_id = _resolve_anchor_archive_id(conn, route.anchor_query)
         if anchor_id is None:
-            return SearchResponse(
-                intent=route.intent.value, filter=route.filter, items=[]
-            )
+            return SearchResponse(intent=route.intent.value, filter=route.filter, items=[])
         items = _similar_to_anchor(
             conn,
             index,
@@ -279,18 +269,14 @@ async def search(
             limit=req.limit,
             match_reason=f"similar to {route.anchor_query}",
         )
-        return SearchResponse(
-            intent=route.intent.value, filter=route.filter, items=items
-        )
+        return SearchResponse(intent=route.intent.value, filter=route.filter, items=items)
 
     # Descriptive without anchor → TF-IDF scoring against the query.
     if route.intent == QueryIntent.DESCRIPTIVE:
         items = _descriptive_hits(
             conn, index, route.normalized_query, limit=req.limit, content_type=ct
         )
-        return SearchResponse(
-            intent=route.intent.value, filter=route.filter, items=items
-        )
+        return SearchResponse(intent=route.intent.value, filter=route.filter, items=items)
 
     # Play command — strip the verb, treat the remainder as a title.
     if route.intent == QueryIntent.PLAY_COMMAND and route.stripped_query:
@@ -301,9 +287,7 @@ async def search(
             content_type=ct,
             match_reason="play-command title match",
         )
-        return SearchResponse(
-            intent=route.intent.value, filter=route.filter, items=items
-        )
+        return SearchResponse(intent=route.intent.value, filter=route.filter, items=items)
 
     # TITLE (explicit or default fallback) + UNKNOWN → FTS path.
     items = _title_hits(
@@ -313,9 +297,7 @@ async def search(
         content_type=ct,
         match_reason="title match",
     )
-    return SearchResponse(
-        intent=route.intent.value, filter=route.filter, items=items
-    )
+    return SearchResponse(intent=route.intent.value, filter=route.filter, items=items)
 
 
 # --- /search/similar ------------------------------------------------------

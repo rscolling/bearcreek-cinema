@@ -54,9 +54,7 @@ def _seed(db: sqlite3.Connection, n: int = 8) -> list[str]:
     for i in range(n):
         aid = f"m{i:02d}"
         ids.append(aid)
-        q_candidates.upsert_candidate(
-            db, _candidate(aid, f"Film {i}", genres=["Noir"])
-        )
+        q_candidates.upsert_candidate(db, _candidate(aid, f"Film {i}", genres=["Noir"]))
     return ids
 
 
@@ -108,18 +106,14 @@ class _FakeProvider:
         self.captured_candidates = candidates
         return _canned_picks(candidates, n)
 
-    async def update_profile(
-        self, current: TasteProfile, events: list[TasteEvent]
-    ) -> TasteProfile:
+    async def update_profile(self, current: TasteProfile, events: list[TasteEvent]) -> TasteProfile:
         return current
 
     async def parse_search(self, query: str) -> SearchFilter:
         return SearchFilter()
 
 
-def _patch_provider(
-    monkeypatch: pytest.MonkeyPatch, fake: _FakeProvider
-) -> None:
+def _patch_provider(monkeypatch: pytest.MonkeyPatch, fake: _FakeProvider) -> None:
     """Route both factory entry points to the fake."""
     import archive_agent.commands.recommend as mod
 

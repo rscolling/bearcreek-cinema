@@ -56,9 +56,7 @@ class _FakeHttpxResponse:
         if self.status_code >= 400:
             request = httpx.Request("GET", "https://example.test/poster.jpg")
             response = httpx.Response(self.status_code, request=request)
-            raise httpx.HTTPStatusError(
-                f"{self.status_code}", request=request, response=response
-            )
+            raise httpx.HTTPStatusError(f"{self.status_code}", request=request, response=response)
 
 
 class _FakeHttpxClient:
@@ -100,8 +98,10 @@ def _patch_httpx(
 
     def _factory(*args: Any, **kwargs: Any) -> _FakeHttpxClient:
         if raise_exc is not None:
+
             async def _raise(_: Any) -> Any:
                 raise raise_exc
+
             return _FakeHttpxClient(_raise, counter)
         resp = response or _FakeHttpxResponse()
         return _FakeHttpxClient(resp, counter)
@@ -147,9 +147,7 @@ def test_cache_writes_to_state_dir(app: FastAPI, monkeypatch: pytest.MonkeyPatch
     assert any(f.name.startswith("p1.") for f in files)
 
 
-def test_content_type_picks_extension(
-    app: FastAPI, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_content_type_picks_extension(app: FastAPI, monkeypatch: pytest.MonkeyPatch) -> None:
     _patch_httpx(
         monkeypatch,
         response=_FakeHttpxResponse(content=b"PNG", content_type="image/png"),
@@ -166,18 +164,14 @@ def test_content_type_picks_extension(
 # --- 404s -----------------------------------------------------------------
 
 
-def test_unknown_archive_id_returns_404(
-    app: FastAPI, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_unknown_archive_id_returns_404(app: FastAPI, monkeypatch: pytest.MonkeyPatch) -> None:
     _patch_httpx(monkeypatch)
     with TestClient(app) as client:
         resp = client.get("/poster/not-real")
     assert resp.status_code == 404
 
 
-def test_null_poster_url_returns_404(
-    app: FastAPI, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_null_poster_url_returns_404(app: FastAPI, monkeypatch: pytest.MonkeyPatch) -> None:
     _patch_httpx(monkeypatch)
     with TestClient(app) as client:
         db: sqlite3.Connection = app.state.db
@@ -189,9 +183,7 @@ def test_null_poster_url_returns_404(
 # --- upstream failures ----------------------------------------------------
 
 
-def test_upstream_timeout_returns_502(
-    app: FastAPI, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_upstream_timeout_returns_502(app: FastAPI, monkeypatch: pytest.MonkeyPatch) -> None:
     _patch_httpx(monkeypatch, raise_exc=httpx.TimeoutException("slow"))
     with TestClient(app) as client:
         db: sqlite3.Connection = app.state.db
@@ -201,9 +193,7 @@ def test_upstream_timeout_returns_502(
     assert "retry-after" in (k.lower() for k in resp.headers)
 
 
-def test_upstream_error_returns_502(
-    app: FastAPI, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_upstream_error_returns_502(app: FastAPI, monkeypatch: pytest.MonkeyPatch) -> None:
     _patch_httpx(
         monkeypatch,
         response=_FakeHttpxResponse(status_code=503, content_type="text/html"),
@@ -235,6 +225,7 @@ def test_oldest_access_eviction_when_over_budget(
         # Space atimes 1s apart.
         new_atime = time.time() - (3 - i) * 10
         import os as _os
+
         _os.utime(p, (new_atime, os_stat_before.st_mtime))
 
     app.state.config.api.poster_cache_size_mb = 1  # 1 MB budget
@@ -257,9 +248,7 @@ def test_oldest_access_eviction_when_over_budget(
 # --- Cache-Control headers ------------------------------------------------
 
 
-def test_response_sets_cache_control(
-    app: FastAPI, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_response_sets_cache_control(app: FastAPI, monkeypatch: pytest.MonkeyPatch) -> None:
     _patch_httpx(monkeypatch)
     with TestClient(app) as client:
         db: sqlite3.Connection = app.state.db

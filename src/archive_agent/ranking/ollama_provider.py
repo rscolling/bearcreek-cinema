@@ -156,9 +156,7 @@ class OllamaProvider:
             _log.error("ollama_rank_client_error", error=str(exc))
             return self._fallback_ranking(candidates, n_requested, reason=f"client: {exc}")
 
-        async with audit_llm_call(
-            "ollama", self._config.model, "rank", conn=self._conn
-        ) as ctx:
+        async with audit_llm_call("ollama", self._config.model, "rank", conn=self._conn) as ctx:
             try:
                 resp: RankResponse = await client.chat.completions.create(
                     messages=[{"role": "user", "content": prompt}],

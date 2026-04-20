@@ -82,9 +82,7 @@ def test_search_title_returns_matches(app: FastAPI) -> None:
 def test_search_no_match_returns_empty_items(app: FastAPI) -> None:
     with TestClient(app) as client:
         _seed_catalog(app.state.db)
-        resp = client.post(
-            "/search", json={"query": "zzqqxx_no_match", "limit": 5}
-        )
+        resp = client.post("/search", json={"query": "zzqqxx_no_match", "limit": 5})
     assert resp.status_code == 200
     assert resp.json()["items"] == []
 
@@ -92,9 +90,7 @@ def test_search_no_match_returns_empty_items(app: FastAPI) -> None:
 def test_search_type_filter_restricts_pool(app: FastAPI) -> None:
     with TestClient(app) as client:
         _seed_catalog(app.state.db)
-        resp = client.post(
-            "/search", json={"query": "the", "type": "show", "limit": 10}
-        )
+        resp = client.post("/search", json={"query": "the", "type": "show", "limit": 10})
     body = resp.json()
     assert body["items"]
     assert all(i["content_type"] == "show" for i in body["items"])
@@ -114,9 +110,7 @@ def test_search_result_status_reflects_jellyfin_item_id(app: FastAPI) -> None:
             db,
             _candidate("ready1", "Ready One", jellyfin_item_id="jf-x"),
         )
-        q_candidates.upsert_candidate(
-            db, _candidate("not_yet", "Ready One Too")
-        )
+        q_candidates.upsert_candidate(db, _candidate("not_yet", "Ready One Too"))
         resp = client.post("/search", json={"query": "Ready"})
 
     items = {i["archive_id"]: i for i in resp.json()["items"]}

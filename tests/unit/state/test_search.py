@@ -43,33 +43,52 @@ def seeded(db: sqlite3.Connection) -> sqlite3.Connection:
         _candidate("his_girl_friday", "His Girl Friday", description="Screwball newsroom comedy."),
         _candidate("thin_man_1934", "The Thin Man", description="Witty mystery."),
         _candidate(
-            "beverly_hillbillies_s01", "The Beverly Hillbillies",
+            "beverly_hillbillies_s01",
+            "The Beverly Hillbillies",
             description="Sitcom about an Ozark family.",
             content_type=ContentType.SHOW,
         ),
-        _candidate("dick_van_dyke_s01", "The Dick Van Dyke Show",
-                   description="Early-1960s comedy.", content_type=ContentType.SHOW),
-        _candidate("night_of_living_dead", "Night of the Living Dead",
-                   description="Low-budget horror classic.", year=1968),
-        _candidate("casablanca_1942", "Casablanca",
-                   description="Wartime romance in Morocco.", year=1942),
-        _candidate("nosferatu_1922", "Nosferatu",
-                   description="German Expressionist vampire film.", year=1922),
-        _candidate("metropolis_1927", "Metropolis",
-                   description="Futurist silent film.", year=1927),
-        _candidate("battleship_potemkin", "Battleship Potemkin",
-                   description="Soviet montage-era classic.", year=1925),
-        _candidate("plan_9", "Plan 9 from Outer Space",
-                   description="Alien-invasion B-movie."),
+        _candidate(
+            "dick_van_dyke_s01",
+            "The Dick Van Dyke Show",
+            description="Early-1960s comedy.",
+            content_type=ContentType.SHOW,
+        ),
+        _candidate(
+            "night_of_living_dead",
+            "Night of the Living Dead",
+            description="Low-budget horror classic.",
+            year=1968,
+        ),
+        _candidate(
+            "casablanca_1942", "Casablanca", description="Wartime romance in Morocco.", year=1942
+        ),
+        _candidate(
+            "nosferatu_1922",
+            "Nosferatu",
+            description="German Expressionist vampire film.",
+            year=1922,
+        ),
+        _candidate("metropolis_1927", "Metropolis", description="Futurist silent film.", year=1927),
+        _candidate(
+            "battleship_potemkin",
+            "Battleship Potemkin",
+            description="Soviet montage-era classic.",
+            year=1925,
+        ),
+        _candidate("plan_9", "Plan 9 from Outer Space", description="Alien-invasion B-movie."),
         _candidate("detour_1945", "Detour", description="Poverty Row noir."),
-        _candidate("trainland_1900", "The Great Train Robbery",
-                   description="Early narrative short."),
-        _candidate("dr_jekyll_1931", "Dr. Jekyll and Mr. Hyde",
-                   description="Pre-Code horror."),
-        _candidate("twilight_zone_s01", "The Twilight Zone",
-                   description="Anthology sci-fi series.", content_type=ContentType.SHOW),
-        _candidate("charade_1963", "Charade",
-                   description="Romantic thriller in Paris."),
+        _candidate(
+            "trainland_1900", "The Great Train Robbery", description="Early narrative short."
+        ),
+        _candidate("dr_jekyll_1931", "Dr. Jekyll and Mr. Hyde", description="Pre-Code horror."),
+        _candidate(
+            "twilight_zone_s01",
+            "The Twilight Zone",
+            description="Anthology sci-fi series.",
+            content_type=ContentType.SHOW,
+        ),
+        _candidate("charade_1963", "Charade", description="Romantic thriller in Paris."),
     ]
     for c in seed:
         q_candidates.upsert_candidate(db, c)
@@ -110,9 +129,7 @@ def test_description_hit_also_surfaces(seeded: sqlite3.Connection) -> None:
 
 
 def test_content_type_filter(seeded: sqlite3.Connection) -> None:
-    results = q_search.fts_search(
-        seeded, "comedy", limit=10, content_type=ContentType.SHOW
-    )
+    results = q_search.fts_search(seeded, "comedy", limit=10, content_type=ContentType.SHOW)
     assert results
     assert all(c.content_type == ContentType.SHOW for c, _ in results)
 
@@ -182,12 +199,8 @@ def test_update_propagates_to_fts(db: sqlite3.Connection) -> None:
 def test_update_multi_column_fires_once(db: sqlite3.Connection) -> None:
     """Per the ADR note: title + description changing in one UPDATE
     must not double-insert into the FTS table."""
-    q_candidates.upsert_candidate(
-        db, _candidate("x2", "Initial", description="Initial desc")
-    )
-    q_candidates.upsert_candidate(
-        db, _candidate("x2", "Second", description="Second desc")
-    )
+    q_candidates.upsert_candidate(db, _candidate("x2", "Initial", description="Initial desc"))
+    q_candidates.upsert_candidate(db, _candidate("x2", "Second", description="Second desc"))
 
     count = db.execute(
         "SELECT COUNT(*) AS c FROM candidates_fts WHERE archive_id = ?",

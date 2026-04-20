@@ -38,9 +38,5 @@ def test_request_id_is_bound_in_log_line(
     rid = resp.headers.get("x-request-id")
     assert rid and len(rid) == 12
 
-    matching = [
-        rec.getMessage() for rec in caplog.records if "http_request" in rec.getMessage()
-    ]
-    assert any(rid in m for m in matching), (
-        f"request_id {rid} not found in log messages"
-    )
+    matching = [rec.getMessage() for rec in caplog.records if "http_request" in rec.getMessage()]
+    assert any(rid in m for m in matching), f"request_id {rid} not found in log messages"

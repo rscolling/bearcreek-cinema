@@ -61,9 +61,7 @@ async def _probe_jellyfin(config: Config) -> dict[str, Any]:
         return {"status": "down", "detail": f"{type(exc).__name__}: {exc}"}
 
 
-async def _probe_claude(
-    config: Config, conn: sqlite3.Connection
-) -> dict[str, Any] | None:
+async def _probe_claude(config: Config, conn: sqlite3.Connection) -> dict[str, Any] | None:
     if config.llm.claude.api_key is None:
         return None
     try:
@@ -112,9 +110,7 @@ def _rollup(*subsystems: dict[str, Any] | None) -> Literal["ok", "degraded", "do
     return "ok"
 
 
-async def gather_health(
-    config: Config, conn: sqlite3.Connection
-) -> SubsystemReport:
+async def gather_health(config: Config, conn: sqlite3.Connection) -> SubsystemReport:
     """Run all probes and fold into a ``SubsystemReport``."""
     ollama, jellyfin, claude = await asyncio.gather(
         _probe_ollama(config, conn),

@@ -94,9 +94,7 @@ def test_health_surfaces_claude_when_configured(
     assert body["claude"]["status"] == "ok"
 
 
-def test_health_down_claude_flips_aggregate(
-    app: FastAPI, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_health_down_claude_flips_aggregate(app: FastAPI, monkeypatch: pytest.MonkeyPatch) -> None:
     _patch_probes(monkeypatch, claude={"status": "down", "detail": "bad key"})
     with TestClient(app) as client:
         resp = client.get("/health")

@@ -81,9 +81,7 @@ def _seed_movie_candidate(db: sqlite3.Connection, archive_id: str, title: str) -
     )
 
 
-def _seed_show_episode(
-    db: sqlite3.Connection, show_id: str, show_title: str
-) -> None:
+def _seed_show_episode(db: sqlite3.Connection, show_id: str, show_title: str) -> None:
     q_candidates.upsert_candidate(
         db,
         Candidate(
@@ -116,15 +114,11 @@ class _FakeProvider:
     async def rank(self, *args: Any, **kwargs: Any) -> list[Any]:
         return []
 
-    async def update_profile(
-        self, current: TasteProfile, events: list[TasteEvent]
-    ) -> TasteProfile:
+    async def update_profile(self, current: TasteProfile, events: list[TasteEvent]) -> TasteProfile:
         if self._raise:
             raise RuntimeError("LLM exploded")
         self.captured_events = events
-        return self._canned.model_copy(
-            update={"version": current.version + 1, "updated_at": _NOW}
-        )
+        return self._canned.model_copy(update={"version": current.version + 1, "updated_at": _NOW})
 
     async def parse_search(self, query: str) -> SearchFilter:
         return SearchFilter()
@@ -196,9 +190,7 @@ def test_gather_tolerates_phantom_ids(db: sqlite3.Connection) -> None:
     in candidates. Gather should succeed without mapping them."""
     q_taste_events.insert_event(
         db,
-        _movie_event(
-            "jellyfin:abc123", TasteEventKind.FINISHED, at=_NOW - timedelta(days=1)
-        ),
+        _movie_event("jellyfin:abc123", TasteEventKind.FINISHED, at=_NOW - timedelta(days=1)),
     )
 
     inp = gather_bootstrap_input(db)
@@ -251,9 +243,7 @@ async def test_dry_run_does_not_insert(db: sqlite3.Connection) -> None:
     q_taste_events.insert_event(
         db, _movie_event("m1", TasteEventKind.FINISHED, at=_NOW - timedelta(days=1))
     )
-    provider = _FakeProvider(
-        canned=TasteProfile(version=1, updated_at=_NOW, summary="dryrun")
-    )
+    provider = _FakeProvider(canned=TasteProfile(version=1, updated_at=_NOW, summary="dryrun"))
 
     result = await bootstrap_profile(db, provider, dry_run=True)
 
@@ -300,9 +290,7 @@ async def test_bootstrap_ratings_override_implicit_polarity(
     q_taste_events.insert_event(
         db, _rating("s1", TasteEventKind.RATED_LOVE, at=_NOW - timedelta(days=1))
     )
-    provider = _FakeProvider(
-        canned=TasteProfile(version=1, updated_at=_NOW, summary="x")
-    )
+    provider = _FakeProvider(canned=TasteProfile(version=1, updated_at=_NOW, summary="x"))
 
     result = await bootstrap_profile(db, provider)
 
@@ -335,9 +323,7 @@ async def test_bootstrap_inserts_and_makes_result_retrievable(
     q_taste_events.insert_event(
         db, _movie_event("m1", TasteEventKind.FINISHED, at=_NOW - timedelta(days=1))
     )
-    provider = _FakeProvider(
-        canned=TasteProfile(version=1, updated_at=_NOW, summary="inserted!")
-    )
+    provider = _FakeProvider(canned=TasteProfile(version=1, updated_at=_NOW, summary="inserted!"))
 
     result = await bootstrap_profile(db, provider)
 

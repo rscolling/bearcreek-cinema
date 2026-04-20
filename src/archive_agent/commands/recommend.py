@@ -82,9 +82,7 @@ async def recommend(
 
     profile = q_profiles.get_latest_profile(conn)
     if profile is None:
-        raise NoProfileError(
-            "no taste profile yet — run `archive-agent taste bootstrap` first"
-        )
+        raise NoProfileError("no taste profile yet — run `archive-agent taste bootstrap` first")
 
     # Excludes: any archive_id recommended within the window.
     window_start = current_now - timedelta(days=config.recommend.exclude_window_days)
