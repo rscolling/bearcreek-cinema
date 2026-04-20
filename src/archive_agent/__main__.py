@@ -377,6 +377,80 @@ def recommend(
         typer.echo(f"       {r.reasoning}")
 
 
+# --- search (FTS5 catalog) ---
+search_app = typer.Typer(no_args_is_help=True, help="Typo-tolerant catalog search.")
+app.add_typer(search_app, name="search")
+
+
+@search_app.command("fts")
+def search_fts(
+    query: str = typer.Argument(..., help="Query text"),
+    type_filter: str = typer.Option("any", "--type", help="movie | show | any"),
+    limit: int = typer.Option(20, "--limit", "-l", help="Max results"),
+) -> None:
+    """Run a typo-tolerant trigram FTS5 query over titles + descriptions."""
+    from archive_agent.config import ConfigError, load_config
+    from archive_agent.state.db import get_db, init_db
+    from archive_agent.state.models import ContentType
+    from archive_agent.state.queries import search as q_search
+
+    try:
+        cfg = load_config()
+    except ConfigError as exc:
+        typer.echo(f"ERROR: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+
+    if type_filter not in {"movie", "show", "any"}:
+        typer.echo(f"invalid --type={type_filter!r}", err=True)
+        raise typer.Exit(code=1)
+    ct: ContentType | None = None
+    if type_filter == "movie":
+        ct = ContentType.MOVIE
+    elif type_filter == "show":
+        ct = ContentType.SHOW
+
+    init_db(cfg.paths.state_db)
+    conn = get_db()
+
+    results = q_search.fts_search(conn, query, limit=limit, content_type=ct)
+    if not results:
+        typer.echo("No matches.")
+        return
+    for cand, score in results:
+        year = str(cand.year) if cand.year else "????"
+        typer.echo(
+            f"  {score:.3f}  {cand.content_type.value:<7} {year:<5}  "
+            f"{cand.archive_id:<32}  {cand.title[:55]}"
+        )
+
+
+@search_app.command("autocomplete")
+def search_autocomplete(
+    prefix: str = typer.Argument(..., help="Title prefix"),
+    limit: int = typer.Option(10, "--limit", "-l", help="Max suggestions"),
+) -> None:
+    """Prefix type-ahead over candidate titles."""
+    from archive_agent.config import ConfigError, load_config
+    from archive_agent.state.db import get_db, init_db
+    from archive_agent.state.queries import search as q_search
+
+    try:
+        cfg = load_config()
+    except ConfigError as exc:
+        typer.echo(f"ERROR: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+
+    init_db(cfg.paths.state_db)
+    conn = get_db()
+
+    suggestions = q_search.fts_autocomplete(conn, prefix, limit=limit)
+    if not suggestions:
+        typer.echo("No matches.")
+        return
+    for s in suggestions:
+        typer.echo(f"  {s['archive_id']:<32}  {s['title']}")
+
+
 # --- taste (show-state aggregator + rating reader) ---
 taste_app = typer.Typer(no_args_is_help=True, help="Show-state aggregator + explicit ratings.")
 app.add_typer(taste_app, name="taste")
