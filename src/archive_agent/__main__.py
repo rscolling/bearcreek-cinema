@@ -407,6 +407,82 @@ def rank_rebuild_index() -> None:
     typer.echo(f"Indexed {index.size} candidates -> {path}")
 
 
+@rank_app.command("ollama")
+def rank_ollama(
+    n: int = typer.Option(5, "--n", help="Number of picks"),
+    k: int = typer.Option(50, "--k", help="Prefilter shortlist size before rerank"),
+    type_filter: str = typer.Option("any", "--type", help="movie | show | any"),
+    genres: str = typer.Option(
+        "",
+        "--genres",
+        help="Comma-separated liked genres (smoke-test profile)",
+    ),
+) -> None:
+    """Run the full two-stage pipeline against the local Ollama model."""
+    import asyncio
+    from datetime import UTC, datetime
+
+    from archive_agent.config import ConfigError, load_config
+    from archive_agent.ranking.ollama_provider import OllamaProvider
+    from archive_agent.ranking.tfidf import TFIDFIndex, prefilter
+    from archive_agent.state.db import get_db, init_db
+    from archive_agent.state.models import ContentType, TasteProfile
+    from archive_agent.taste import latest_for_all_shows
+
+    try:
+        cfg = load_config()
+    except ConfigError as exc:
+        typer.echo(f"ERROR: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+
+    if type_filter not in {"movie", "show", "any"}:
+        typer.echo(f"invalid --type={type_filter!r}", err=True)
+        raise typer.Exit(code=1)
+
+    init_db(cfg.paths.state_db)
+    conn = get_db()
+
+    index = TFIDFIndex.build(conn)
+    if index.size == 0:
+        typer.echo("No candidates — run `archive-agent discover` first.", err=True)
+        raise typer.Exit(code=1)
+
+    profile = TasteProfile(
+        version=0,
+        updated_at=datetime.now(UTC),
+        liked_genres=[g.strip() for g in genres.split(",") if g.strip()],
+    )
+    content_types: list[ContentType] | None
+    if type_filter == "movie":
+        content_types = [ContentType.MOVIE]
+    elif type_filter == "show":
+        content_types = [ContentType.SHOW]
+    else:
+        content_types = None
+
+    shortlist = prefilter(index, conn, profile, k=k, content_types=content_types)
+    if not shortlist:
+        typer.echo("Prefilter produced no candidates.")
+        return
+
+    candidates = [c for c, _ in shortlist]
+    ratings = latest_for_all_shows(conn)
+    provider = OllamaProvider(cfg.llm.ollama, conn=conn)
+
+    picks = asyncio.run(provider.rank(profile, candidates, n=n, ratings=ratings))
+    if not picks:
+        typer.echo("No picks returned.")
+        return
+    for r in picks:
+        cand = r.candidate
+        year = str(cand.year) if cand.year else "????"
+        typer.echo(
+            f"  #{r.rank}  {r.score:.2f}  {cand.content_type.value:<7} {year}  "
+            f"{cand.title[:55]}"
+        )
+        typer.echo(f"        {r.reasoning}")
+
+
 @rank_app.command("prefilter")
 def rank_prefilter(
     k: int = typer.Option(50, "--k", help="Shortlist size"),

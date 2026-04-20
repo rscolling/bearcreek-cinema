@@ -73,8 +73,8 @@ async def test_ollama_stub_methods_raise(config: Config, db: sqlite3.Connection)
     provider = OllamaProvider(config.llm.ollama, conn=db)
     profile = TasteProfile(version=1, updated_at=datetime.now(UTC))
 
-    with pytest.raises(NotImplementedError):
-        await provider.rank(profile, [])
+    # ``rank`` is implemented (phase3-03) — empty candidates returns [].
+    assert await provider.rank(profile, []) == []
     with pytest.raises(NotImplementedError):
         await provider.update_profile(profile, [])
     with pytest.raises(NotImplementedError):

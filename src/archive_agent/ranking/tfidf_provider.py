@@ -49,6 +49,8 @@ class TFIDFProvider:
         profile: TasteProfile,
         candidates: list[Candidate],
         n: int = 5,
+        *,
+        ratings: dict[str, TasteEvent] | None = None,
     ) -> list[RankedCandidate]:
         raise NotImplementedError("TFIDFProvider.rank arrives in phase3-06")
 

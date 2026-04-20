@@ -64,6 +64,8 @@ class LLMProvider(Protocol):
         profile: TasteProfile,
         candidates: list[Candidate],
         n: int = 5,
+        *,
+        ratings: dict[str, TasteEvent] | None = None,
     ) -> list[RankedCandidate]: ...
 
     async def update_profile(

@@ -74,6 +74,10 @@ class LlmOllamaConfig(BaseModel):
     small_model: str = "llama3.2:3b"
     timeout_seconds: PositiveInt = 180
     max_retries: int = Field(default=2, ge=0)
+    # Context window we ask Ollama to allocate per request. Must be large
+    # enough that a 50-candidate rank prompt fits with headroom (see
+    # archive_agent.testing.token_budget.check_prompt_fits).
+    num_ctx: PositiveInt = 8192
 
 
 class LlmClaudeConfig(BaseModel):
