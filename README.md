@@ -1,5 +1,7 @@
 # Bear Creek Cinema
 
+[![CI](https://github.com/rscolling/bearcreek-cinema/actions/workflows/ci.yml/badge.svg)](https://github.com/rscolling/bearcreek-cinema/actions/workflows/ci.yml)
+
 **A self-hosted home cinema that learns what you like and hunts for it on
 the Internet Archive.** Runs on your own server. Pulls public-domain films
 and classic TV. Appears on your Roku like any other streaming app.
