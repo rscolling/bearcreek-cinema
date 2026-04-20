@@ -34,6 +34,7 @@ from fastapi.responses import JSONResponse
 from archive_agent.api.routes.health import router as health_router
 from archive_agent.api.routes.recommendations import router as recommendations_router
 from archive_agent.api.routes.root import router as root_router
+from archive_agent.api.routes.search import router as search_router
 from archive_agent.api.routes.select import router as select_router
 from archive_agent.config import Config
 from archive_agent.logging import get_logger
@@ -153,6 +154,7 @@ def create_app(config: Config) -> FastAPI:
     app.include_router(health_router)
     app.include_router(recommendations_router)
     app.include_router(select_router)
+    app.include_router(search_router)
 
     return app
 

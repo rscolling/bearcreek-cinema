@@ -14,6 +14,7 @@ from fastapi import Request
 
 from archive_agent.config import Config
 from archive_agent.ranking.provider import LLMProvider
+from archive_agent.ranking.tfidf import TFIDFIndex
 
 
 def get_config(request: Request) -> Config:
@@ -40,4 +41,20 @@ def get_provider(request: Request) -> LLMProvider:
     return provider  # type: ignore[no-any-return]
 
 
-__all__ = ["get_config", "get_db", "get_provider"]
+def get_tfidf_index(request: Request) -> TFIDFIndex:
+    """Lazy-build + cache the TF-IDF index on ``app.state``.
+
+    Rebuilding for every ``/search/similar`` would cost ~100ms at
+    10k candidates; one-shot build amortizes across the lifetime of
+    the app. Refreshes are the daemon loop's concern (it rebuilds
+    after big discovery sweeps and swaps the cached attribute).
+    """
+    index = getattr(request.app.state, "tfidf_index", None)
+    if index is None:
+        conn = get_db(request)
+        index = TFIDFIndex.build(conn)
+        request.app.state.tfidf_index = index
+    return index
+
+
+__all__ = ["get_config", "get_db", "get_provider", "get_tfidf_index"]

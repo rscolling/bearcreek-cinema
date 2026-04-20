@@ -93,9 +93,71 @@ def to_recommendation_item(
 SelectStatus = Literal["ready", "queued", "failed"]
 
 
+SearchResultStatus = Literal["ready", "downloadable", "discoverable"]
+
+
+class SearchResultItem(BaseModel):
+    archive_id: str
+    content_type: ContentType
+    title: str
+    year: int | None = None
+    poster_url: str
+    status: SearchResultStatus
+    jellyfin_item_id: str | None = None
+    runtime_minutes: int | None = None
+    next_episode: EpisodeInfo | None = None
+    relevance_score: float
+    match_reason: str
+
+
+class AutocompleteSuggestion(BaseModel):
+    title: str
+    archive_id: str
+
+
+_DOWNLOADABLE_STATUSES = {"new", "ranked", "approved"}
+
+
+def _search_status_for(cand: Candidate) -> SearchResultStatus:
+    if cand.jellyfin_item_id is not None:
+        return "ready"
+    if cand.status.value in _DOWNLOADABLE_STATUSES:
+        return "downloadable"
+    # Terminal statuses (rejected / expired / downloaded / committed) —
+    # treat as downloadable so the UI lets the user re-trigger. They
+    # can't be "discoverable" (that's the live-archive fallback).
+    return "downloadable"
+
+
+def to_search_result_item(
+    cand: Candidate,
+    score: float,
+    *,
+    match_reason: str,
+    next_episode: EpisodeInfo | None = None,
+) -> SearchResultItem:
+    return SearchResultItem(
+        archive_id=cand.archive_id,
+        content_type=cand.content_type,
+        title=cand.title,
+        year=cand.year,
+        poster_url=_poster_url(cand.archive_id),
+        status=_search_status_for(cand),
+        jellyfin_item_id=cand.jellyfin_item_id,
+        runtime_minutes=cand.runtime_minutes,
+        next_episode=next_episode,
+        relevance_score=score,
+        match_reason=match_reason,
+    )
+
+
 __all__ = [
+    "AutocompleteSuggestion",
     "EpisodeInfo",
     "RecommendationItem",
+    "SearchResultItem",
+    "SearchResultStatus",
     "SelectStatus",
     "to_recommendation_item",
+    "to_search_result_item",
 ]

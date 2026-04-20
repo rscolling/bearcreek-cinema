@@ -65,7 +65,7 @@ movie+TV shortlist with LLM-generated reasoning, and
 - [x] `phase4-02-health-endpoint.md` — /health with subsystem status
 - [x] `phase4-03-recommendations-endpoints.md` — /recommendations* routes
 - [x] `phase4-04-select-flow.md` — POST /select triggers download flow
-- [ ] `phase4-05-search-endpoint.md` — NL search via small Ollama model
+- [x] `phase4-05-search-endpoint.md` — NL search via small Ollama model
 - [ ] `phase4-06-poster-proxy.md` — /poster/{id}
 - [ ] `phase4-07-disk-endpoint.md` — /disk usage view
 - [ ] `phase4-08-query-router.md` — title/descriptive/play-command
