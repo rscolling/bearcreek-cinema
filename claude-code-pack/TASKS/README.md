@@ -76,7 +76,7 @@ Jellyfin ready to play.
 
 ## Phase 5: Bear Creek Cinema (Roku app)
 
-- [ ] `phase5-01-roku-scaffold.md` — SceneGraph project, manifest, build
+- [x] `phase5-01-roku-scaffold.md` — SceneGraph project, manifest, build
   script
 - [ ] `phase5-02-roku-settings.md` — agent URL config screen
 - [ ] `phase5-03-roku-home-grid.md` — poster wall with type badges

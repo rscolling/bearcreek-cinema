@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+    Root scene. Phase5-01 ships this as a placeholder: centered
+    title label, status line, and an empty Group where phase5-03
+    will attach the home PosterGrid. Remote events route through
+    here; navigation into SettingsScene / HomeScene follows in
+    later cards.
+-->
+<component name="MainScene" extends="Scene">
+    <interface>
+        <!-- Written by Main.brs at launch; read by child scenes
+             when they need the agent base URL. Can be "" on a
+             first launch — the scene prompts for settings then. -->
+        <field id="agentUrl" type="string" value="" alwaysNotify="true" />
+    </interface>
+
+    <script type="text/brightscript" uri="pkg:/components/MainScene.brs" />
+    <script type="text/brightscript" uri="pkg:/components/common/Logger.brs" />
+
+    <children>
+        <!-- Solid background so the Scene isn't transparent. -->
+        <Rectangle
+            id="background"
+            width="1280"
+            height="720"
+            color="#151515" />
+
+        <!-- Placeholder status readout while the home grid hasn't
+             landed (phase5-03). -->
+        <LayoutGroup
+            id="welcome"
+            layoutDirection="vert"
+            horizAlignment="center"
+            translation="[0, 260]"
+            itemSpacings="[16]">
+            <Label
+                id="titleLabel"
+                text="Bear Creek Cinema"
+                font="font:LargeBoldSystemFont"
+                color="#f5f5f5"
+                horizAlign="center"
+                width="1280" />
+            <Label
+                id="statusLabel"
+                text="Scaffold ready — grid arrives in phase5-03."
+                font="font:MediumSystemFont"
+                color="#a0a0a0"
+                horizAlign="center"
+                width="1280" />
+        </LayoutGroup>
+
+        <!-- Anchor where phase5-03's PosterGrid will attach. -->
+        <Group id="contentRoot" />
+    </children>
+</component>
