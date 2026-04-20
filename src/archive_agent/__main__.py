@@ -1750,11 +1750,32 @@ def state_backup(
 # --- serve / daemon ---
 @app.command()
 def serve(
-    host: str = typer.Option("0.0.0.0", help="Bind address"),
-    port: int = typer.Option(8787, help="Bind port"),
+    host: str = typer.Option("", help="Bind address (default: config.api.host)"),
+    port: int = typer.Option(0, help="Bind port (default: config.api.port)"),
 ) -> None:
     """Run the FastAPI HTTP service for the Roku app."""
-    _not_implemented("serve")
+    import uvicorn
+
+    from archive_agent.api.app import create_app
+    from archive_agent.config import ConfigError, load_config
+
+    try:
+        cfg = load_config()
+    except ConfigError as exc:
+        typer.echo(f"ERROR: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+
+    bind_host = host or cfg.api.host
+    bind_port = port or cfg.api.port
+    fastapi_app = create_app(cfg)
+
+    uvicorn.run(
+        fastapi_app,
+        host=bind_host,
+        port=bind_port,
+        log_level=cfg.logging.level.lower(),
+        access_log=False,  # our middleware logs every request already
+    )
 
 
 @app.command()
