@@ -107,6 +107,15 @@ it," sometimes that's "I'll get back to it."
 to the profile. A single episode watched casually contributes nothing
 to taste, only to resume state.
 
+**Explicit augment — 3-thumb show ratings (ADR-013).** Implicit signal
+alone is slow and ambiguous. The Roku app exposes Netflix-style per-show
+ratings — 👎 / 👍 / 👍👍 — which write `RATED_DOWN` / `RATED_UP` /
+`RATED_LOVE` events with `source="roku_api"` and `content_type=SHOW`.
+The ranker reads the *latest* rating per show (append-only history, newest
+wins) as a strong prior: one explicit thumb quickly delivers what half a
+dozen implicit events would approximate. Ratings augment the binge
+aggregator, they don't replace it.
+
 The profile prose itself doesn't care about the distinction:
 > Household likes screwball comedy across eras — shows up in film picks
 > (*His Girl Friday*, *The Thin Man*) and TV (*The Dick Van Dyke Show*).

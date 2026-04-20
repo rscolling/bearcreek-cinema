@@ -69,6 +69,12 @@ class TasteEventKind(str, Enum):
     APPROVED = "approved"                # user hit Watch in Roku app
     REJECTED = "rejected"                # user hit Never
     DEFERRED = "deferred"                # user hit Not Tonight
+    # Netflix-style 3-thumb show ratings (ADR-013). All three have
+    # content_type=SHOW and source="roku_api". Latest thumb per show
+    # wins at read time; the table stays append-only for audit.
+    RATED_DOWN = "rated_down"            # thumbs-down on a show (strength 0.9)
+    RATED_UP = "rated_up"                # thumbs-up on a show (strength 0.6)
+    RATED_LOVE = "rated_love"            # double thumbs-up on a show (strength 1.0)
 
 
 class TasteEvent(BaseModel):

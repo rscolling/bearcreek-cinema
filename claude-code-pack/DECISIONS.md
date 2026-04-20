@@ -257,6 +257,76 @@ No external vector database.
 
 ---
 
+## ADR-013: Netflix-style 3-thumb explicit show ratings
+
+**Status:** ACCEPTED
+
+**Context:** The taste profile (ADR-003, ADR-004) currently learns
+only from implicit playback signal — finishing a movie, binge-
+completing a show, abandoning a show. That works for households who
+watch many things, but it's slow (needs multiple events to converge),
+ambiguous (abandoning after one episode could be "not for me" or "I'll
+get back to it"), and opaque (user can't directly tell the agent
+"don't recommend more like this"). Netflix's 3-thumb system solves
+that with a minimal explicit-signal UI: thumbs-down, thumbs-up, double
+thumbs-up.
+
+**Decision:** Add Netflix-style 3-thumb ratings as an **augment** to
+implicit signal (not a replacement). Ratings are:
+
+- **per-show**, not per-episode (matches Netflix; episodes roll up to
+  show in the taste profile anyway — ADR-004)
+- **latest-wins**: ``taste_events`` stays append-only so we keep the
+  audit history, but the ranker computes each show's current rating as
+  the most-recent ``roku_api``-sourced rating event — not a sum of
+  thumbs over time
+- **Roku-only for now**: no HTTP ``/rate`` endpoint in phase 4. The
+  Roku app records ratings by calling into the same in-process code
+  path as phase5's /select (via a new ``/shows/{id}/rate`` endpoint
+  added when phase5 lands)
+
+Three new ``TasteEventKind`` variants, mapped to the existing
+``strength: float (0..1)`` field:
+
+| thumb | `TasteEventKind` | strength |
+| --- | --- | --- |
+| 👎 | `RATED_DOWN` | 0.9 |
+| 👍 | `RATED_UP` | 0.6 |
+| 👍👍 | `RATED_LOVE` | 1.0 |
+
+Strength's polarity follows the kind (same pattern as REJECTED /
+ABANDONED / BINGE_NEGATIVE — high strength with a "negative" kind
+means strong dislike). All three have ``content_type=SHOW`` and
+``source="roku_api"``; the existing ``taste_events`` schema already
+enforces the show/movie content_type check and the archive_id-or-
+show_id invariant.
+
+**Consequences:**
+
+- One explicit thumb quickly delivers what half a dozen implicit
+  events would approximate. A brand-new user can seed the profile in
+  minutes.
+- Ranker math (phase3-03 onward) treats ratings as strong priors:
+  RATED_LOVE pushes "more like this" heavily; RATED_DOWN excludes
+  similar shows from recommendations for a while (not permanently —
+  tastes change).
+- Append-only history means a user who flips 👎 → 👍 → 👎 again leaves
+  three rows; reader picks the newest by ``max(timestamp)`` per
+  ``show_id`` where ``source='roku_api'`` AND ``kind`` in the three
+  RATED variants.
+- No schema change needed: ``taste_events.kind`` has no ``CHECK``
+  constraint and already allows ``content_type='show'``. ``source``
+  defaults to ``'playback'`` so a Roku writer must pass
+  ``source='roku_api'`` explicitly, which also cleanly distinguishes
+  explicit ratings from implicit ones.
+- Strength numbers (0.9 / 0.6 / 1.0) are a starting point, tuneable
+  as phase3 ranking gets calibrated against real data. Don't treat
+  them as fixed.
+- Per-episode ratings are **deferred**, not rejected — if Phase 6
+  feedback suggests users want them, revisit.
+
+---
+
 ## ADR template (use for new decisions)
 
 ```
