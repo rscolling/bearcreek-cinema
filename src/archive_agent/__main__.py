@@ -1764,9 +1764,37 @@ def serve(
 
 
 @app.command()
-def daemon() -> None:
+def daemon(
+    tick: int = typer.Option(30, "--tick", help="Scheduler poll interval in seconds"),
+    one_shot: bool = typer.Option(False, "--one-shot", help="Run every task once and exit"),
+) -> None:
     """Run the async job loop: discovery, aggregation, ranking, librarian."""
-    _not_implemented("daemon")
+    import asyncio
+
+    from archive_agent.config import ConfigError, load_config
+    from archive_agent.loop import run_one_shot, start
+    from archive_agent.ranking.factory import make_fallback_provider
+    from archive_agent.state.db import get_db, init_db
+
+    try:
+        cfg = load_config()
+    except ConfigError as exc:
+        typer.echo(f"ERROR: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+
+    init_db(cfg.paths.state_db)
+    conn = get_db()
+    provider = make_fallback_provider("nightly_ranking", cfg, conn=conn)
+
+    if one_shot:
+        fired = asyncio.run(run_one_shot(cfg, conn, provider))
+        typer.echo(f"Ran {len(fired)} task(s): {', '.join(fired) or '-'}")
+        return
+
+    try:
+        asyncio.run(start(cfg, conn, provider, tick_seconds=float(tick)))
+    except KeyboardInterrupt:
+        typer.echo("Interrupted — shutting down.")
 
 
 # --- health ---

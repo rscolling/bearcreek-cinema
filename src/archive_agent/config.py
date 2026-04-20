@@ -138,6 +138,8 @@ class RecommendConfig(BaseModel):
     default_n: PositiveInt = 5
     prefilter_k: PositiveInt = 50
     exclude_window_days: PositiveInt = 14
+    # Daemon loop: how often to produce a fresh batch.
+    interval_hours: PositiveInt = 6
 
 
 class ApiConfig(BaseModel):
